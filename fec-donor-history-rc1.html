@@ -1,0 +1,2474 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Donor History Formatter v11</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Atkinson+Hyperlegible:ital,wght@0,400;0,700;1,400&display=swap" rel="stylesheet">
+<style>
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  :root {
+    --bg: #f7f6f3; --surface: #ffffff; --border: #e2e0da; --border-strong: #c8c5bc;
+    --text: #1a1917; --text-muted: #6b6862; --text-faint: #9b9792;
+    --accent: #1a5fb4; --accent-bg: #eef3fb;
+    --green: #2e7d32; --red: #b71c1c; --red-bg: #fdf0f0; --yellow-bg: #fffbe6;
+    --radius: 8px; --radius-lg: 12px; --mono: 'Courier New', monospace;
+    --ui-font: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+    --ui-size: 15px;
+    --row-pad: 9px 12px;
+  }
+  body { font-family: var(--ui-font); font-size: var(--ui-size); line-height: 1.6; background: var(--bg); color: var(--text); min-height: 100vh; }
+  header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 1rem 2rem; display: flex; align-items: center; gap: 1.25rem; flex-wrap: wrap; transition: padding 0.15s; }
+  header h1 { font-size: 17px; font-weight: 600; letter-spacing: -0.01em; white-space: nowrap; transition: font-size 0.15s; }
+  header.compact { padding: 0.4rem 1.25rem; }
+  header.compact h1 { font-size: 13px; }
+  header.compact .mode-desc { display: none; }
+  /* No-transitions mode */
+  body.no-transitions *, body.no-transitions *::before, body.no-transitions *::after { transition: none !important; animation: none !important; }
+  .mode-toggle { display: flex; border: 1px solid var(--border-strong); border-radius: var(--radius); overflow: hidden; margin-left: 0.25rem; }
+  .mode-btn { font-size: 12px; font-weight: 500; padding: 5px 14px; border: none; background: transparent; color: var(--text-muted); cursor: pointer; transition: all 0.12s; white-space: nowrap; }
+  .mode-btn:hover { background: var(--bg); color: var(--text); }
+  .mode-btn.active { background: var(--text); color: #fff; }
+  header .mode-desc { font-size: 12px; color: var(--text-muted); }
+  .container { max-width: 1400px; margin: 0 auto; padding: 2rem 1.5rem; display: flex; flex-direction: column; gap: 1.5rem; }
+
+  /* Tabs */
+  .tabs { display: flex; gap: 0; border-bottom: 1px solid var(--border); background: var(--surface); border-radius: var(--radius-lg) var(--radius-lg) 0 0; overflow: hidden; }
+  .tab-btn { font-size: 13px; font-weight: 500; padding: 0.75rem 1.25rem; border: none; background: transparent; color: var(--text-muted); cursor: pointer; border-bottom: 2px solid transparent; margin-bottom: -1px; transition: all 0.1s; }
+  .tab-btn:hover { color: var(--text); background: var(--bg); }
+  .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background: var(--surface); }
+  .tab-content { display: none; }
+  .tab-content.active { display: block; }
+  .tabbed-card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .tabbed-card .tabs { border-radius: 0; }
+  .tabbed-body { padding: 1.25rem; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius-lg); overflow: hidden; }
+  .card-header { padding: 1rem 1.25rem 0.75rem; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 0.5rem; }
+  .card-header h2 { font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; color: var(--text-muted); }
+  .step-badge { width: 20px; height: 20px; border-radius: 50%; background: var(--text); color: #fff; font-size: 11px; font-weight: 700; display: flex; align-items: center; justify-content: center; flex-shrink: 0; }
+  .card-body { padding: 1.25rem; }
+
+  .search-row { display: flex; gap: 0.75rem; flex-wrap: wrap; align-items: flex-end; }
+  .field { display: flex; flex-direction: column; gap: 4px; }
+  .field label { font-size: 12px; font-weight: 500; color: var(--text-muted); }
+  input[type="text"], input[type="number"], select, textarea { font-size: var(--ui-size); padding: 0 10px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg); color: var(--text); font-family: inherit; }
+  input[type="text"], input[type="number"], select { height: 36px; }
+  input[type="text"]:focus, input[type="number"]:focus, select:focus, textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  input[type="text"] { width: 175px; }
+  textarea#pasteArea { width: 100%; min-height: 130px; padding: 10px 12px; font-family: var(--mono); font-size: 12.5px; resize: vertical; }
+
+  .upload-row { display: flex; gap: 0.75rem; align-items: center; flex-wrap: wrap; }
+  .dropzone { border: 1.5px dashed var(--border-strong); border-radius: var(--radius); padding: 0.9rem 1.1rem; display: flex; align-items: center; gap: 0.6rem; color: var(--text-muted); font-size: 13px; cursor: pointer; transition: all 0.12s; background: var(--bg); }
+  .dropzone:hover, .dropzone.drag { border-color: var(--accent); color: var(--accent); background: var(--accent-bg); }
+  .dropzone svg { flex-shrink: 0; }
+  .or-sep { font-size: 12px; color: var(--text-faint); text-transform: uppercase; letter-spacing: 0.05em; }
+  .file-chip { font-size: 12px; background: var(--accent-bg); color: var(--accent); border-radius: 99px; padding: 3px 10px; display: inline-flex; align-items: center; gap: 6px; }
+
+  .cycle-grid { display: flex; flex-wrap: wrap; gap: 6px; margin-top: 2px; }
+  .cycle-chip { display: inline-flex; align-items: center; gap: 4px; font-size: 12px; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border-strong); background: var(--surface); color: var(--text-muted); cursor: pointer; user-select: none; transition: all 0.1s; }
+  .cycle-chip:hover { border-color: var(--accent); color: var(--accent); }
+  .cycle-chip.selected { background: var(--text); border-color: var(--text); color: #fff; }
+  .cycle-chip.meta { border-style: dashed; }
+
+  button { font-size: var(--ui-size); font-weight: 500; height: 36px; padding: 0 14px; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); color: var(--text); cursor: pointer; display: inline-flex; align-items: center; gap: 6px; transition: background 0.1s; white-space: nowrap; }
+  button:hover { background: var(--bg); }
+  button.primary { background: var(--text); color: #fff; border-color: var(--text); }
+  button.primary:hover { background: #333; }
+  button.ghost { border-color: transparent; color: var(--text-muted); }
+  button.ghost:hover { background: var(--bg); color: var(--text); }
+  button.sm { font-size: 11px; height: 26px; padding: 0 10px; }
+  button.danger { border-color: var(--red); color: var(--red); background: transparent; }
+  button.danger:hover { background: var(--red-bg); }
+
+  .status-bar { font-size: var(--ui-size); color: var(--text-muted); margin-top: 0.75rem; min-height: 22px; display: flex; align-items: center; gap: 8px; }
+  .error-msg { font-size: 13px; color: var(--red); background: var(--red-bg); border-radius: var(--radius); padding: 0.65rem 1rem; margin-top: 0.75rem; }
+  .spinner { width: 15px; height: 15px; border: 2px solid var(--border-strong); border-top-color: var(--text-muted); border-radius: 50%; animation: spin 0.7s linear infinite; flex-shrink: 0; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+
+  .rename-banner { background: var(--accent-bg); border: 1px solid #b8d0f0; border-radius: var(--radius); padding: 0.65rem 1rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 13px; margin-bottom: 0.75rem; }
+  .rename-banner strong { color: var(--accent); }
+  .rename-banner input[type="text"] { width: 140px; height: 30px; font-size: 13px; }
+
+  .selection-bar { background: var(--yellow-bg); border: 1px solid #e6d000; border-radius: var(--radius); padding: 0.6rem 1rem; display: flex; align-items: center; gap: 0.75rem; flex-wrap: wrap; font-size: 13px; margin-bottom: 0.75rem; }
+  .selection-bar strong { color: #5a4a00; }
+
+  .toolbar { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .toolbar-sep { width: 1px; height: 20px; background: var(--border); flex-shrink: 0; }
+  .filter-input { height: 30px; font-size: 12px; padding: 0 8px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg); color: var(--text); font-family: inherit; }
+  .filter-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  .table-wrap { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: var(--ui-size); }
+  th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 7px 8px; border-bottom: 1px solid var(--border); white-space: nowrap; user-select: none; }
+  th.sortable { cursor: pointer; }
+  th.sortable:hover { color: var(--text); }
+  th.sort-asc::after { content: ' \25B2'; font-size: 9px; }
+  th.sort-desc::after { content: ' \25BC'; font-size: 9px; }
+  td { padding: var(--row-pad); border-bottom: 1px solid var(--border); vertical-align: middle; color: var(--text); }
+  tr:last-child td { border-bottom: none; }
+  tr.excluded td { opacity: 0.35; text-decoration: line-through; }
+  tr.row-selected td { background: #f0f5ff; }
+  tr:hover:not(.row-selected) td { background: #fafaf8; }
+  tr.excluded:hover td { background: transparent; }
+  /* Zebra striping — toggled via .zebra on the table */
+  table.zebra tbody tr:nth-child(even):not(.row-selected):not(.excluded) td { background: color-mix(in srgb, var(--bg) 60%, var(--surface) 40%); }
+  table.zebra tbody tr:nth-child(even):hover:not(.row-selected) td { background: #fafaf8; }
+  td.cb-cell, th.cb-cell { width: 32px; padding: var(--row-pad); padding-right: 4px; padding-left: 10px; }
+  input[type="checkbox"] { width: 14px; height: 14px; cursor: pointer; accent-color: var(--accent); }
+
+  .trunc { max-width: 170px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .trunc-sm { max-width: 120px; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .override-wrap { display: flex; align-items: center; gap: 4px; }
+  .override-input { width: 100px; font-size: 12px; height: 26px; padding: 0 6px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--text); font-family: inherit; }
+  .override-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .rename-all-btn { font-size: 10px; height: 20px; padding: 0 5px; border-radius: 4px; border: 1px solid var(--border); background: var(--surface); color: var(--text-faint); cursor: pointer; flex-shrink: 0; }
+  .rename-all-btn:hover { color: var(--accent); border-color: var(--accent); }
+  .amt-pos { color: var(--green); font-weight: 600; }
+  .amt-neg { color: var(--red); font-weight: 600; }
+  .exc-btn { font-size: 11px; height: 22px; padding: 0 7px; border-radius: 99px; border: 1px solid var(--border); background: var(--surface); color: var(--text-muted); cursor: pointer; }
+  .exc-btn:hover { background: var(--bg); }
+  .memo-btn { font-size:13px; height:22px; width:22px; padding:0; border-radius:4px; border:1px solid var(--border); background:var(--surface); cursor:pointer; margin-right:4px; display:inline-flex; align-items:center; justify-content:center; }
+  .memo-btn:hover { background:var(--accent-bg); border-color:var(--accent); }
+  .type-badge { font-size: 10px; padding: 1px 6px; border-radius: 99px; background: var(--bg); border: 1px solid var(--border); color: var(--text-muted); white-space: nowrap; }
+  .type-badge.inkind { background: #fff4e0; border-color: #e8c98a; color: #8a5a00; }
+  .type-badge.loan { background: #f0e6fb; border-color: #cbb0ea; color: #5b2a8a; }
+
+  .btn-row { display: flex; gap: 0.5rem; margin-top: 1rem; flex-wrap: wrap; align-items: center; }
+  .output-box { font-family: var(--mono); font-size: var(--ui-size); line-height: 2.1; background: var(--bg); border: 1px solid var(--border); border-radius: var(--radius); padding: 1rem 1.25rem; white-space: pre-wrap; word-break: break-word; color: var(--text); min-height: 60px; }
+
+  /* Presets tab */
+  .presets-intro { font-size: 13px; color: var(--text-muted); margin-bottom: 1.25rem; line-height: 1.6; }
+  .preset-add-row { display: flex; gap: 8px; align-items: center; margin-bottom: 1.25rem; flex-wrap: wrap; }
+  .preset-add-row input { width: 200px; }
+  .preset-add-row span { font-size: 13px; color: var(--text-muted); }
+  .presets-table { width: 100%; border-collapse: collapse; font-size: var(--ui-size); margin-bottom: 1.25rem; }
+  .presets-table th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 6px 10px; border-bottom: 1px solid var(--border); }
+  .presets-table td { padding: 8px 10px; border-bottom: 1px solid var(--border); vertical-align: middle; }
+  .presets-table tr:last-child td { border-bottom: none; }
+  .presets-table tr:hover td { background: var(--bg); }
+  .preset-edit-input { width: 160px; font-size: 13px; height: 28px; padding: 0 8px; border: 1px solid var(--border); border-radius: 5px; background: var(--bg); color: var(--text); font-family: inherit; }
+  .preset-edit-input:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+  .empty-presets { text-align: center; padding: 2rem; color: var(--text-faint); font-size: 13px; }
+  .preset-io-row { display: flex; gap: 8px; align-items: center; padding-top: 1rem; border-top: 1px solid var(--border); flex-wrap: wrap; }
+  .preset-io-row span { font-size: 12px; color: var(--text-muted); }
+
+  /* History */
+  .history-table { width: 100%; border-collapse: collapse; font-size: var(--ui-size); }
+  .history-table th { text-align: left; font-size: 11px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.05em; color: var(--text-muted); padding: 7px 12px; border-bottom: 1px solid var(--border); }
+  .history-table td { padding: var(--row-pad); border-bottom: 1px solid var(--border); color: var(--text); vertical-align: middle; }
+  .history-table tr:last-child td { border-bottom: none; }
+  .history-table tr:hover td { background: var(--bg); }
+  .history-cycles { display: flex; flex-wrap: wrap; gap: 3px; }
+  .history-cycle-pip { font-size: 11px; background: var(--bg); border: 1px solid var(--border); border-radius: 99px; padding: 1px 7px; color: var(--text-muted); }
+
+  /* Toggle */
+  .toggle-label { display:inline-flex; align-items:center; gap:8px; cursor:default; }
+  .toggle-wrap { display:inline-flex; align-items:center; gap:6px; }
+  .toggle-opt { font-size:12px; color:var(--text-muted); transition:color 0.15s; }
+  .toggle-switch { width:36px; height:20px; background:var(--border-strong); border-radius:99px; position:relative; cursor:pointer; transition:background 0.2s; flex-shrink:0; }
+  .toggle-switch.on { background:var(--accent); }
+  .toggle-knob { width:14px; height:14px; background:#fff; border-radius:50%; position:absolute; top:3px; left:3px; transition:left 0.2s; box-shadow:0 1px 3px rgba(0,0,0,0.2); }
+  .toggle-switch.on .toggle-knob { left:19px; }
+
+  /* Settings tab */
+  .settings-section { margin-bottom: 1.5rem; padding-bottom: 1.5rem; border-bottom: 1px solid var(--border); }
+  .settings-section:last-child { margin-bottom: 0; padding-bottom: 0; border-bottom: none; }
+  .settings-section-title { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: 0.08em; color: var(--text-muted); margin-bottom: 1rem; }
+  .settings-row { display: flex; gap: 1.5rem; align-items: center; flex-wrap: wrap; margin-bottom: 0.75rem; }
+  .settings-row:last-child { margin-bottom: 0; }
+  .settings-row label { font-size: var(--ui-size); color: var(--text); min-width: 140px; }
+  .settings-row .hint { font-size: 12px; color: var(--text-faint); }
+  .color-row { display: flex; gap: 1rem; flex-wrap: wrap; align-items: center; margin-bottom: 0.75rem; }
+  .color-item { display: flex; flex-direction: column; gap: 5px; align-items: center; }
+  .color-item label { font-size: 11px; color: var(--text-muted); text-align: center; }
+  .color-preset-btn { font-size: 12px; font-weight: 500; padding: 5px 12px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--surface); color: var(--text); cursor: pointer; transition: all 0.1s; }
+  .color-preset-btn:hover { background: var(--bg); border-color: var(--accent); color: var(--accent); }
+  .color-preset-btn.active { background: var(--accent); color: #fff; border-color: var(--accent); }
+  input[type="color"] { width: 44px; height: 36px; padding: 2px; border: 1px solid var(--border-strong); border-radius: var(--radius); cursor: pointer; background: var(--surface); }
+  .api-key-row { display: flex; gap: 8px; align-items: center; }
+  .api-key-input { font-family: var(--mono); font-size: 13px; width: 340px; }
+  .lock-btn { font-size: 18px; height: 36px; width: 36px; padding: 0; border-radius: var(--radius); border: 1px solid var(--border-strong); background: var(--surface); cursor: pointer; display: flex; align-items: center; justify-content: center; }
+  .lock-btn:hover { background: var(--bg); }
+  .fmt-radio-group { display: flex; gap: 8px; }
+  .fmt-radio-option { display: flex; align-items: center; gap: 5px; font-size: var(--ui-size); cursor: pointer; padding: 5px 10px; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg); transition: all 0.1s; }
+  .fmt-radio-option:hover { border-color: var(--accent); }
+  .fmt-radio-option.selected { background: var(--text); color: #fff; border-color: var(--text); }
+  .fmt-radio-option input[type="radio"] { display: none; }
+
+  /* Merge tab */
+  .merge-areas { display: grid; grid-template-columns: 1fr 1fr; gap: 1rem; margin-bottom: 1rem; }
+  @media (max-width: 700px) { .merge-areas { grid-template-columns: 1fr; } }
+  .merge-area-label { font-size: 12px; font-weight: 600; color: var(--text-muted); margin-bottom: 4px; text-transform: uppercase; letter-spacing: 0.05em; }
+  textarea.merge-textarea { width: 100%; min-height: 160px; padding: 10px 12px; font-family: var(--mono); font-size: 12px; resize: vertical; border: 1px solid var(--border-strong); border-radius: var(--radius); background: var(--bg); color: var(--text); }
+  textarea.merge-textarea:focus { outline: 2px solid var(--accent); outline-offset: 1px; }
+
+  footer { text-align: center; font-size: 12px; color: var(--text-faint); padding: 1.5rem; }
+  footer a { color: var(--accent); }
+</style>
+</head>
+<body>
+
+<header>
+  <h1 id="app-title">Donor History Formatter</h1>
+  <div class="mode-toggle">
+    <button class="mode-btn active" id="mode-btn-fec" onclick="switchMode('fec')">FEC Federal</button>
+    <button class="mode-btn" id="mode-btn-il" onclick="switchMode('il')">IL State</button>
+  </div>
+  <span class="mode-desc" id="mode-desc">Federal Election Commission &middot; Individual Contributions</span>
+</header>
+
+<div class="container">
+
+  <!-- Input + Presets + History + Settings + Merge tabbed card -->
+  <div class="tabbed-card">
+    <div class="tabs">
+      <button class="tab-btn active" id="tab-btn-input" onclick="switchTab('input')">
+        <span id="tab-input-label">&#x1F50D; Search</span>
+      </button>
+      <button class="tab-btn" onclick="switchTab('presets')">&#x1F4CB; Name Presets</button>
+      <button class="tab-btn" onclick="switchTab('history')">&#x1F553; History</button>
+      <button class="tab-btn" onclick="switchTab('settings')">&#x2699; Settings</button>
+      <button class="tab-btn" onclick="switchTab('merge')">&#x21C6; Merge</button>
+    </div>
+
+    <!-- FEC/IL Search tab -->
+    <div class="tab-content active tabbed-body" id="tab-input">
+      <!-- FEC UI -->
+      <div id="fec-ui">
+        <div class="search-row">
+          <div class="field">
+            <label>Last name *</label>
+            <input type="text" id="fec-lastName" placeholder="e.g. Smith" />
+          </div>
+          <div class="field">
+            <label>First name</label>
+            <input type="text" id="fec-firstName" placeholder="optional" style="width:130px" />
+          </div>
+          <div class="field">
+            <label>State</label>
+            <select id="fec-stateFilter" style="width:110px">
+              <option value="">All states</option>
+              <option>AL</option><option>AK</option><option>AZ</option><option>AR</option>
+              <option>CA</option><option>CO</option><option>CT</option><option>DE</option>
+              <option>FL</option><option>GA</option><option>HI</option><option>ID</option>
+              <option>IL</option><option>IN</option><option>IA</option><option>KS</option>
+              <option>KY</option><option>LA</option><option>ME</option><option>MD</option>
+              <option>MA</option><option>MI</option><option>MN</option><option>MS</option>
+              <option>MO</option><option>MT</option><option>NE</option><option>NV</option>
+              <option>NH</option><option>NJ</option><option>NM</option><option>NY</option>
+              <option>NC</option><option>ND</option><option>OH</option><option>OK</option>
+              <option>OR</option><option>PA</option><option>RI</option><option>SC</option>
+              <option>SD</option><option>TN</option><option>TX</option><option>UT</option>
+              <option>VT</option><option>VA</option><option>WA</option><option>WV</option>
+              <option>WI</option><option>WY</option><option>DC</option>
+            </select>
+          </div>
+          <button class="primary" onclick="doSearch()" style="margin-top:18px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Search
+          </button>
+        </div>
+
+        <div class="field" style="margin-top:1rem">
+          <label>Election cycles</label>
+          <div class="cycle-grid" id="fec-cycle-grid">
+            <span class="cycle-chip selected" data-cycle="2026">2026</span>
+            <span class="cycle-chip selected" data-cycle="2024">2024</span>
+            <span class="cycle-chip selected" data-cycle="2022">2022</span>
+            <span class="cycle-chip selected" data-cycle="2020">2020</span>
+            <span class="cycle-chip" data-cycle="2018">2018</span>
+            <span class="cycle-chip" data-cycle="2016">2016</span>
+            <span class="cycle-chip" data-cycle="2014">2014</span>
+            <span class="cycle-chip" data-cycle="2012">2012</span>
+            <span class="cycle-chip" data-cycle="2010">2010</span>
+            <span class="cycle-chip" data-cycle="2008">2008</span>
+            <span class="cycle-chip" data-cycle="2006">2006</span>
+            <span class="cycle-chip" data-cycle="2004">2004</span>
+            <span class="cycle-chip meta" id="fec-all-cycles-btn">All</span>
+            <span class="cycle-chip meta" id="fec-clear-cycles-btn">None</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- IL UI -->
+      <div id="il-ui" style="display:none">
+        <div class="field" style="margin-bottom:1rem">
+          <label>Illinois receipts CSV export</label>
+          <div class="upload-row">
+            <div class="dropzone" id="dropzone" onclick="document.getElementById('il-file-input').click()">
+              <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+              <span id="dropzone-label">Click to upload, or drag a .csv file here</span>
+            </div>
+            <input type="file" id="il-file-input" accept=".csv,text/csv" style="display:none" onchange="handleFileInput(this)" />
+            <span class="or-sep">or</span>
+            <span style="font-size:12px;color:var(--text-muted)">paste raw CSV text below</span>
+          </div>
+        </div>
+        <div class="field" style="margin-bottom:1rem">
+          <label>Paste CSV text</label>
+          <textarea id="pasteArea" placeholder="CommitteeID,CommitteeName,ContributedBy,RcvdDate,Amount,..."></textarea>
+        </div>
+        <div class="search-row" style="margin-bottom:0.5rem">
+          <div class="field">
+            <label>Filter to contributor last name</label>
+            <input type="text" id="il-lastName" placeholder="optional, e.g. Sacks" />
+          </div>
+          <div class="field">
+            <label>First name</label>
+            <input type="text" id="il-firstName" placeholder="optional" style="width:130px" />
+          </div>
+          <button class="primary" onclick="doParse()" style="margin-top:18px">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><circle cx="11" cy="11" r="8"/><line x1="21" y1="21" x2="16.65" y2="16.65"/></svg>
+            Parse records
+          </button>
+        </div>
+        <div style="font-size:12px;color:var(--text-faint);margin-bottom:0.25rem">
+          Leave the name fields blank if the CSV already covers a single contributor. If the file contains several contributors, use the fields above to isolate one.
+        </div>
+      </div>
+
+      <div id="search-status" class="status-bar"></div>
+      <div id="search-error"></div>
+    </div>
+
+    <!-- Presets tab -->
+    <div class="tab-content tabbed-body" id="tab-presets">
+      <p class="presets-intro" id="presets-intro-text">
+        Presets auto-correct committee names to the right last name whenever you run a search.
+        For example: if a committee name contains <strong>"Tammy"</strong>, map it to <strong>"Duckworth"</strong>.
+        Matching is case-insensitive. Presets are saved per mode and persist across sessions.
+      </p>
+      <div class="preset-add-row">
+        <div class="field">
+          <label>If committee name contains&hellip;</label>
+          <input type="text" id="preset-keyword" placeholder="e.g. Tammy" style="width:210px" />
+        </div>
+        <span style="margin-top:18px">&rarr; use last name:</span>
+        <div class="field">
+          <label>&nbsp;</label>
+          <input type="text" id="preset-lastname" placeholder="e.g. Duckworth" style="width:160px" />
+        </div>
+        <button class="primary" onclick="addPreset()" style="margin-top:18px">Add preset</button>
+      </div>
+
+      <div id="presets-list-wrap">
+        <table class="presets-table" id="presets-table" style="display:none">
+          <thead>
+            <tr>
+              <th>If committee contains&hellip;</th>
+              <th>Use last name</th>
+              <th style="width:80px"></th>
+            </tr>
+          </thead>
+          <tbody id="presets-body"></tbody>
+        </table>
+        <div class="empty-presets" id="presets-empty">No presets yet. Add one above.</div>
+      </div>
+
+      <div class="preset-io-row">
+        <button class="sm" onclick="exportPresets()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+          Export presets
+        </button>
+        <button class="sm" onclick="document.getElementById('import-file').click()">
+          <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+          Import presets
+        </button>
+        <input type="file" id="import-file" accept=".json" style="display:none" onchange="importPresets(this)" />
+        <button class="sm danger" onclick="clearAllPresets()">Clear all</button>
+        <span id="presets-status"></span>
+      </div>
+    </div>
+
+    <!-- History tab -->
+    <div class="tab-content tabbed-body" id="tab-history">
+      <div id="history-empty" class="empty-presets">No history yet.</div>
+      <table class="history-table" id="history-table" style="display:none">
+        <thead><tr>
+          <th id="history-col-name" style="padding:7px 12px">Name</th>
+          <th id="history-col-source" style="display:none">Source</th>
+          <th>Years/Cycles</th>
+          <th>Results</th>
+          <th>Searched</th>
+          <th></th>
+        </tr></thead>
+        <tbody id="history-body"></tbody>
+      </table>
+      <div class="preset-io-row" id="history-clear-row" style="display:none">
+        <button class="sm ghost" onclick="clearHistory()">Clear history</button>
+      </div>
+    </div>
+
+    <!-- Settings tab -->
+    <div class="tab-content tabbed-body" id="tab-settings">
+
+      <!-- Year order -->
+      <div class="settings-section">
+        <div class="settings-section-title">Output</div>
+        <div class="settings-row">
+          <label>Year order</label>
+          <div class="fmt-radio-group" id="yearorder-radio-group">
+            <label class="fmt-radio-option selected" data-yearorder="asc" onclick="setYearOrder(false)">
+              <input type="radio" name="yearorder" value="asc" checked /> Old &rarr; New
+            </label>
+            <label class="fmt-radio-option" data-yearorder="desc" onclick="setYearOrder(true)">
+              <input type="radio" name="yearorder" value="desc" /> New &rarr; Old
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Amount format</label>
+          <div class="fmt-radio-group" id="fmt-radio-group">
+            <label class="fmt-radio-option selected" data-fmt="k" onclick="setAmtFormat('k')">
+              <input type="radio" name="amtfmt" value="k" checked /> $5K
+            </label>
+            <label class="fmt-radio-option" data-fmt="comma" onclick="setAmtFormat('comma')">
+              <input type="radio" name="amtfmt" value="comma" /> $5,000
+            </label>
+            <label class="fmt-radio-option" data-fmt="k1" onclick="setAmtFormat('k1')">
+              <input type="radio" name="amtfmt" value="k1" /> $5.0K
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Donor separator</label>
+          <div class="fmt-radio-group" id="sep-radio-group">
+            <label class="fmt-radio-option selected" data-sep="semi" onclick="setSeparator('semi')">
+              <input type="radio" name="sep" value="semi" checked /> ; Semicolon
+            </label>
+            <label class="fmt-radio-option" data-sep="pipe" onclick="setSeparator('pipe')">
+              <input type="radio" name="sep" value="pipe" /> | Pipe
+            </label>
+            <label class="fmt-radio-option" data-sep="emdash" onclick="setSeparator('emdash')">
+              <input type="radio" name="sep" value="emdash" /> — Em dash
+            </label>
+            <label class="fmt-radio-option" data-sep="comma" onclick="setSeparator('comma')">
+              <input type="radio" name="sep" value="comma" /> , Comma
+            </label>
+            <label class="fmt-radio-option" data-sep="bullet" onclick="setSeparator('bullet')">
+              <input type="radio" name="sep" value="bullet" /> · Bullet
+            </label>
+            <label class="fmt-radio-option" data-sep="newline" onclick="setSeparator('newline')">
+              <input type="radio" name="sep" value="newline" /> ↵ New line
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Year totals</label>
+          <div class="fmt-radio-group" id="yeartotals-radio-group">
+            <label class="fmt-radio-option selected" data-yeartotals="off" onclick="setYearTotals(false)">
+              <input type="radio" name="yeartotals" value="off" checked /> Off
+            </label>
+            <label class="fmt-radio-option" data-yeartotals="on" onclick="setYearTotals(true)">
+              <input type="radio" name="yeartotals" value="on" /> Show total
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Copy format</label>
+          <div class="fmt-radio-group" id="copyfmt-radio-group">
+            <label class="fmt-radio-option selected" data-copyfmt="plain" onclick="setCopyFormat('plain')">
+              <input type="radio" name="copyfmt" value="plain" checked /> Plain text
+            </label>
+            <label class="fmt-radio-option" data-copyfmt="markdown" onclick="setCopyFormat('markdown')">
+              <input type="radio" name="copyfmt" value="markdown" /> Markdown
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Search history</label>
+          <button class="sm danger" onclick="clearHistory()">Clear history</button>
+        </div>
+      </div>
+
+      <!-- Average settings -->
+      <div class="settings-section">
+        <div class="settings-section-title">Average Calculation</div>
+        <div class="settings-row">
+          <label>Include in avg</label>
+          <div class="fmt-radio-group" id="avg-mode-group">
+            <label class="fmt-radio-option selected" data-avgmode="all" onclick="setAvgMode('all')">
+              <input type="radio" name="avgmode" value="all" checked /> All contributions
+            </label>
+            <label class="fmt-radio-option" data-avgmode="positive" onclick="setAvgMode('positive')">
+              <input type="radio" name="avgmode" value="positive" /> Positive only
+            </label>
+            <label class="fmt-radio-option" data-avgmode="off" onclick="setAvgMode('off')">
+              <input type="radio" name="avgmode" value="off" /> Off
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Min amount (inclusive)</label>
+          <input type="number" id="avg-min-input" placeholder="e.g. 1000" style="width:130px" oninput="setAvgMin(this.value)" />
+          <span style="font-size:12px;color:var(--text-faint)">blank = no min</span>
+        </div>
+        <div class="settings-row">
+          <label>Max amount (inclusive)</label>
+          <input type="number" id="avg-max-input" placeholder="e.g. 5000" style="width:130px" oninput="setAvgMax(this.value)" />
+          <span style="font-size:12px;color:var(--text-faint)">blank = no max</span>
+        </div>
+      </div>
+
+      <!-- Federal Settings -->
+      <div class="settings-section">
+        <div class="settings-section-title">Federal (FEC)</div>
+        <div class="settings-row">
+          <label>FEC API key</label>
+          <div class="api-key-row">
+            <input type="text" class="api-key-input" id="settings-api-key" placeholder="Enter API key" oninput="saveApiKey()" />
+            <button class="lock-btn" id="api-lock-btn" onclick="toggleApiLock()" title="Lock to prevent accidental edits">&#x1F513;</button>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label></label>
+          <span class="hint">Get a free key at <a href="https://api.open.fec.gov/developers/" target="_blank" style="color:var(--accent)">api.open.fec.gov</a></span>
+        </div>
+        <div class="settings-row">
+          <label>Default state filter</label>
+          <select id="settings-default-state" style="width:110px" onchange="saveDefaultState(this.value)">
+            <option value="">None (all states)</option>
+            <option>AL</option><option>AK</option><option>AZ</option><option>AR</option>
+            <option>CA</option><option>CO</option><option>CT</option><option>DE</option>
+            <option>FL</option><option>GA</option><option>HI</option><option>ID</option>
+            <option>IL</option><option>IN</option><option>IA</option><option>KS</option>
+            <option>KY</option><option>LA</option><option>ME</option><option>MD</option>
+            <option>MA</option><option>MI</option><option>MN</option><option>MS</option>
+            <option>MO</option><option>MT</option><option>NE</option><option>NV</option>
+            <option>NH</option><option>NJ</option><option>NM</option><option>NY</option>
+            <option>NC</option><option>ND</option><option>OH</option><option>OK</option>
+            <option>OR</option><option>PA</option><option>RI</option><option>SC</option>
+            <option>SD</option><option>TN</option><option>TX</option><option>UT</option>
+            <option>VT</option><option>VA</option><option>WA</option><option>WV</option>
+            <option>WI</option><option>WY</option><option>DC</option>
+          </select>
+          <span class="hint">Pre-fills the state filter in FEC search</span>
+        </div>
+      </div>
+
+      <!-- Customization -->
+      <div class="settings-section">
+        <div class="settings-section-title">Customization</div>
+        <div class="settings-row">
+          <label>App title</label>
+          <input type="text" id="custom-title-input" placeholder="Donor History Formatter v11" style="width:260px" oninput="applyCustomTitle(this.value)" />
+          <button class="sm ghost" onclick="resetCustomTitle()">Reset</button>
+        </div>
+        <div class="settings-row">
+          <label>Font</label>
+          <div class="fmt-radio-group" id="font-radio-group">
+            <label class="fmt-radio-option selected" data-font="system" onclick="setFont('system')"><input type="radio" name="uifont" value="system" checked /> System</label>
+            <label class="fmt-radio-option" data-font="georgia" onclick="setFont('georgia')"><input type="radio" name="uifont" value="georgia" /> Georgia</label>
+            <label class="fmt-radio-option" data-font="mono" onclick="setFont('mono')"><input type="radio" name="uifont" value="mono" /> Mono</label>
+            <label class="fmt-radio-option" data-font="opendyslexic" onclick="setFont('opendyslexic')"><input type="radio" name="uifont" value="opendyslexic" /> OpenDyslexic</label>
+            <label class="fmt-radio-option" data-font="atkinson" onclick="setFont('atkinson')"><input type="radio" name="uifont" value="atkinson" /> Atkinson</label>
+            <label class="fmt-radio-option" data-font="comic" onclick="setFont('comic')"><input type="radio" name="uifont" value="comic" /> Comic Sans</label>
+            <label class="fmt-radio-option" data-font="papyrus" onclick="setFont('papyrus')"><input type="radio" name="uifont" value="papyrus" /> Papyrus</label>
+            <label class="fmt-radio-option" data-font="wingdings" onclick="setFont('wingdings')"><input type="radio" name="uifont" value="wingdings" /> 🦋</label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Font size</label>
+          <div class="fmt-radio-group" id="fontsize-radio-group">
+            <label class="fmt-radio-option" data-fontsize="small" onclick="setFontSize('small')"><input type="radio" name="uifontsize" value="small" /> Small</label>
+            <label class="fmt-radio-option selected" data-fontsize="medium" onclick="setFontSize('medium')"><input type="radio" name="uifontsize" value="medium" checked /> Medium</label>
+            <label class="fmt-radio-option" data-fontsize="large" onclick="setFontSize('large')"><input type="radio" name="uifontsize" value="large" /> Large</label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Row density</label>
+          <div class="fmt-radio-group" id="density-radio-group">
+            <label class="fmt-radio-option" data-density="compact" onclick="setDensity('compact')"><input type="radio" name="density" value="compact" /> Compact</label>
+            <label class="fmt-radio-option selected" data-density="comfortable" onclick="setDensity('comfortable')"><input type="radio" name="density" value="comfortable" checked /> Comfortable</label>
+            <label class="fmt-radio-option" data-density="spacious" onclick="setDensity('spacious')"><input type="radio" name="density" value="spacious" /> Spacious</label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Header</label>
+          <div class="fmt-radio-group" id="header-radio-group">
+            <label class="fmt-radio-option selected" data-header="full" onclick="setHeaderCompact(false)"><input type="radio" name="headersize" value="full" checked /> Full</label>
+            <label class="fmt-radio-option" data-header="compact" onclick="setHeaderCompact(true)"><input type="radio" name="headersize" value="compact" /> Compact</label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Zebra striping</label>
+          <div class="fmt-radio-group" id="zebra-radio-group">
+            <label class="fmt-radio-option selected" data-zebra="off" onclick="setZebra(false)"><input type="radio" name="zebra" value="off" checked /> Off</label>
+            <label class="fmt-radio-option" data-zebra="on" onclick="setZebra(true)"><input type="radio" name="zebra" value="on" /> On</label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Transitions</label>
+          <div class="fmt-radio-group" id="transitions-radio-group">
+            <label class="fmt-radio-option selected" data-transitions="on" onclick="setTransitions(true)"><input type="radio" name="transitions" value="on" checked /> On</label>
+            <label class="fmt-radio-option" data-transitions="off" onclick="setTransitions(false)"><input type="radio" name="transitions" value="off" /> Off</label>
+          </div>
+        </div>
+        <div class="settings-row" style="margin-bottom:1rem;gap:0.5rem;flex-wrap:wrap">
+          <label style="min-width:unset;width:100%;margin-bottom:2px">Presets</label>
+          <button class="color-preset-btn" data-preset="default" onclick="applyColorPreset('default')">Default</button>
+          <button class="color-preset-btn" data-preset="dark" onclick="applyColorPreset('dark')">Dark</button>
+          <button class="color-preset-btn" data-preset="slate" onclick="applyColorPreset('slate')">Slate</button>
+          <button class="color-preset-btn" data-preset="forest" onclick="applyColorPreset('forest')">Forest</button>
+          <button class="color-preset-btn" data-preset="rose" onclick="applyColorPreset('rose')">Rose</button>
+          <button class="color-preset-btn" data-preset="contrast" onclick="applyColorPreset('contrast')">High Contrast</button>
+          <button class="color-preset-btn" data-preset="midnight" onclick="applyColorPreset('midnight')">Midnight</button>
+          <button class="color-preset-btn" data-preset="amber" onclick="applyColorPreset('amber')">Amber</button>
+          <button class="color-preset-btn" data-preset="ocean" onclick="applyColorPreset('ocean')">Ocean</button>
+          <button class="color-preset-btn" data-preset="lavender" onclick="applyColorPreset('lavender')">Lavender</button>
+          <button class="color-preset-btn" data-preset="terminal" onclick="applyColorPreset('terminal')">Terminal</button>
+          <button class="color-preset-btn" data-preset="chaos" onclick="applyColorPreset('chaos')">Don't Click</button>
+        </div>
+        <div class="color-row">
+          <div class="color-item">
+            <input type="color" id="color-bg" oninput="applyColor('bg', this.value)" />
+            <label>Background</label>
+          </div>
+          <div class="color-item">
+            <input type="color" id="color-surface" oninput="applyColor('surface', this.value)" />
+            <label>Surface</label>
+          </div>
+          <div class="color-item">
+            <input type="color" id="color-accent" oninput="applyColor('accent', this.value)" />
+            <label>Accent</label>
+          </div>
+          <div class="color-item">
+            <input type="color" id="color-text" oninput="applyColor('text', this.value)" />
+            <label>Text</label>
+          </div>
+          <button class="sm" onclick="resetColors()" style="margin-top:18px">Reset colors</button>
+          <button class="sm" onclick="exportColors()" style="margin-top:18px">Export theme</button>
+          <button class="sm" onclick="document.getElementById('color-import-file').click()" style="margin-top:18px">Import theme</button>
+          <input type="file" id="color-import-file" accept=".json" style="display:none" onchange="importColors(this)" />
+        </div>
+      </div>
+
+      <!-- Debug -->
+      <div class="settings-section">
+        <div class="settings-section-title">Developer</div>
+        <div class="settings-row">
+          <label>Debug mode</label>
+          <div class="fmt-radio-group" id="debug-radio-group">
+            <label class="fmt-radio-option selected" data-debug="off" onclick="setDebugMode(false)">
+              <input type="radio" name="debugmode" value="off" checked /> Off
+            </label>
+            <label class="fmt-radio-option" data-debug="on" onclick="setDebugMode(true)">
+              <input type="radio" name="debugmode" value="on" /> On
+            </label>
+          </div>
+        </div>
+        <div class="settings-row">
+          <label>Bug reports</label>
+          <a href="mailto:NickWPress@gmail.com" style="font-size:13px;color:var(--accent)">NickWPress@gmail.com</a>
+        </div>
+      </div>
+    </div>
+
+    <!-- Merge tab -->
+    <div class="tab-content tabbed-body" id="tab-merge">
+      <p style="font-size:13px;color:var(--text-muted);margin-bottom:1rem;line-height:1.6">
+        Paste two formatted giving histories below. Same committee + year combinations will be summed. Use for combining two FEC searches, two IL exports, or one of each.
+      </p>
+      <div class="merge-areas">
+        <div>
+          <div class="merge-area-label">History A</div>
+          <textarea class="merge-textarea" id="merge-a" placeholder="2022: Duckworth $5K; Barnes $2.5K&#10;2020: Duckworth $5K"></textarea>
+        </div>
+        <div>
+          <div class="merge-area-label">History B</div>
+          <textarea class="merge-textarea" id="merge-b" placeholder="2022: Duckworth $2K&#10;2024: Pritzker $5K"></textarea>
+        </div>
+      </div>
+      <div style="display:flex;gap:8px;align-items:center;margin-bottom:1rem;flex-wrap:wrap">
+        <button class="primary" onclick="doMerge()">
+          &#x21C6; Merge histories
+        </button>
+        <button class="sm ghost" onclick="clearMerge()">Clear</button>
+        <span id="merge-status" style="font-size:13px;color:var(--text-muted)"></span>
+      </div>
+      <div id="merge-output-wrap" style="display:none">
+        <div class="merge-area-label" style="margin-bottom:4px">Merged result</div>
+        <div class="output-box" id="merge-output-text"></div>
+        <div class="btn-row">
+          <button class="primary" onclick="copyMerge()" id="merge-copy-btn">
+            <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+            Copy to clipboard
+          </button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Review card -->
+  <div class="card" id="review-card" style="display:none">
+    <div class="card-header" style="justify-content:space-between">
+      <div style="display:flex;align-items:center;gap:0.5rem">
+        <div class="step-badge">2</div>
+        <h2>Review contributions</h2>
+      </div>
+      <div style="display:flex;gap:6px;align-items:center">
+        <button class="sm ghost" onclick="reapplyPresets()" title="Re-run all presets against current results">&#x21BB; Apply presets</button>
+        <button class="sm ghost" id="debug-btn" onclick="debugPresets()" style="display:none">&#x1F50D; Debug presets</button>
+      </div>
+    </div>
+    <div class="card-body">
+
+      <!-- IL-only: year grid -->
+      <div id="il-cycle-row" style="display:none;margin-bottom:1rem">
+        <div class="field">
+          <label>Years to include in output</label>
+          <div class="cycle-grid" id="il-cycle-grid"></div>
+        </div>
+      </div>
+
+      <div id="rename-banner" class="rename-banner" style="display:none">
+        <strong id="rename-source-label"></strong>
+        <span>&rarr; rename all to:</span>
+        <input type="text" id="rename-target" placeholder="new last name" oninput="updateRenamePreview()" />
+        <span id="rename-preview" style="font-size:12px;color:var(--text-muted);font-style:italic"></span>
+        <button class="sm primary" onclick="applyRenameAll()">Apply to all</button>
+        <button class="sm" onclick="saveAsPreset()" title="Save this mapping as a preset for future searches">+ Save as preset</button>
+        <button class="sm ghost" onclick="closeRenameBanner()">Cancel</button>
+      </div>
+
+      <div id="selection-bar" class="selection-bar" style="display:none">
+        <strong id="sel-count-label">0 rows selected</strong>
+        <button class="sm" onclick="excludeSelected()">Exclude selected</button>
+        <button class="sm" onclick="includeSelected()">Include selected</button>
+        <button class="sm ghost" onclick="clearSelection()">Clear selection</button>
+      </div>
+
+      <div class="toolbar">
+        <input type="text" class="filter-input" id="name-filter" placeholder="Filter by contributor name&hellip;" oninput="renderTable()" style="width:200px" />
+        <input type="text" class="filter-input" id="last-used-filter" placeholder="Filter by last name used&hellip;" oninput="renderTable()" style="width:185px" />
+        <input type="text" class="filter-input" id="filter-input" placeholder="Filter by committee&hellip;" oninput="renderTable()" style="width:170px" />
+        <input type="text" class="filter-input" id="employer-filter" placeholder="Filter by employer&hellip;" oninput="renderTable()" style="width:155px" />
+        <input type="text" class="filter-input" id="location-filter" placeholder="Filter by city/state&hellip;" oninput="renderTable()" style="width:150px" />
+        <input type="number" class="filter-input" id="amt-min" placeholder="Min $" oninput="renderTable()" style="width:76px" />
+        <input type="number" class="filter-input" id="amt-max" placeholder="Max $" oninput="renderTable()" style="width:76px" />
+        <div class="toolbar-sep"></div>
+        <button class="sm ghost" onclick="excludeFiltered()">Exclude filtered</button>
+        <button class="sm ghost" onclick="includeFiltered()">Include filtered</button>
+        <div class="toolbar-sep"></div>
+        <button class="sm ghost" onclick="excludeRefunds()">Exclude refunds</button>
+        <button class="sm ghost il-only" id="btn-excl-inkind" onclick="excludeInKind()" style="display:none">Exclude in-kind</button>
+        <button class="sm ghost il-only" id="btn-excl-loans" onclick="excludeLoans()" style="display:none">Exclude loans</button>
+        <button class="sm ghost fec-only" id="btn-excl-neg" onclick="excludeNegative()">Exclude negatives</button>
+        <button class="sm ghost" onclick="includeAll()">Include all</button>
+        <div class="toolbar-sep"></div>
+        <span id="record-count" style="font-size:12px;color:var(--text-muted)"></span>
+      </div>
+
+      <div class="table-wrap">
+        <table id="main-table">
+          <thead>
+            <tr>
+              <th class="cb-cell"><input type="checkbox" id="select-all-cb" onchange="toggleSelectAll(this)" title="Select all visible" /></th>
+              <th class="sortable" data-col="cycle" id="col-cycle-header">Cycle</th>
+              <th class="sortable" data-col="date">Date</th>
+              <th class="sortable" data-col="rawName">Contributor</th>
+              <th class="sortable" data-col="committee">Committee</th>
+              <th class="sortable" data-col="employer">Employer</th>
+              <th class="sortable" data-col="occupation">Occupation</th>
+              <th class="sortable" data-col="address">Address</th>
+              <th class="sortable" data-col="lastName">Last name used</th>
+              <th class="sortable" data-col="amount" style="text-align:right">Amount</th>
+              <th></th>
+            </tr>
+          </thead>
+          <tbody id="contrib-body"></tbody>
+        </table>
+      </div>
+
+      <div class="btn-row" style="align-items:center;gap:1rem">
+        <button class="primary" onclick="buildOutput()">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><polyline points="22 12 18 12 15 21 9 3 6 12 2 12"/></svg>
+          Generate formatted history
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <!-- Output card -->
+  <div class="card" id="output-card" style="display:none">
+    <div class="card-header"><div class="step-badge">3</div><h2>Formatted donor history</h2></div>
+    <div class="card-body">
+      <div class="output-box" id="output-text"></div>
+      <div class="btn-row">
+        <button class="primary" onclick="copyOutput()" id="copy-btn">
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg>
+          Copy to clipboard
+        </button>
+      </div>
+    </div>
+  </div>
+
+</div>
+
+<!-- Debug popup -->
+<div id="debug-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;align-items:flex-start;justify-content:center;padding-top:4rem;overflow-y:auto" onclick="closeDebug(event)">
+  <div id="debug-popup" style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,0.18);max-width:680px;width:90%;padding:1.5rem;margin-bottom:2rem">
+    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:1rem">
+      <div style="font-size:14px;font-weight:600">Preset debug</div>
+      <button onclick="document.getElementById('debug-overlay').style.display='none'" style="border:none;background:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:0;line-height:1;height:auto">&#x2715;</button>
+    </div>
+    <div style="font-size:12px;color:var(--text-muted);margin-bottom:1rem">Every unique committee name in your results is shown below with which preset matched (if any).</div>
+    <div id="debug-content" style="font-family:var(--mono);font-size:12px;line-height:1.8;background:var(--bg);border-radius:var(--radius);padding:1rem;white-space:pre-wrap;max-height:60vh;overflow-y:auto"></div>
+  </div>
+</div>
+
+<!-- Memo popup -->
+<div id="memo-overlay" style="display:none;position:fixed;inset:0;background:rgba(0,0,0,0.35);z-index:1000;align-items:center;justify-content:center" onclick="closeMemo(event)">
+  <div id="memo-popup" style="background:var(--surface);border-radius:var(--radius-lg);box-shadow:0 8px 32px rgba(0,0,0,0.18);max-width:480px;width:90%;padding:1.5rem;position:relative">
+    <div style="display:flex;justify-content:space-between;align-items:flex-start;margin-bottom:0.75rem">
+      <div>
+        <div id="memo-popup-label" style="font-size:11px;font-weight:600;text-transform:uppercase;letter-spacing:0.05em;color:var(--text-muted);margin-bottom:2px">Memo</div>
+        <div id="memo-popup-committee" style="font-size:13px;color:var(--text-muted)"></div>
+      </div>
+      <button onclick="closeMemo()" style="border:none;background:none;font-size:18px;color:var(--text-muted);cursor:pointer;padding:0;line-height:1;height:auto">&#x2715;</button>
+    </div>
+    <div id="memo-popup-text" style="font-size:14px;line-height:1.7;color:var(--text);background:var(--bg);border-radius:var(--radius);padding:0.9rem 1rem;white-space:pre-wrap;word-break:break-word"></div>
+  </div>
+</div>
+
+<footer id="footer-text">
+  Data from <a href="https://www.fec.gov/" target="_blank">Federal Election Commission</a> via OpenFEC API &middot;
+  Only itemized contributions over $200 appear &middot;
+  Runs entirely in your browser &middot;
+  <a href="mailto:NickWPress@gmail.com" style="color:inherit;opacity:0.7">Report a bug</a>
+</footer>
+
+<script>
+// ── Constants & State ─────────────────────────────────────────────────────────
+const FEC_PRESETS_KEY    = 'fec_name_presets';
+const IL_PRESETS_KEY     = 'il_name_presets';
+const FEC_HISTORY_KEY    = 'fec_search_history';
+const IL_HISTORY_KEY     = 'il_search_history';
+const DEBUG_MODE_KEY     = 'dh_debug_mode';
+const YEAR_ORDER_KEY     = 'dh_year_order';
+const AMT_FORMAT_KEY     = 'dh_amt_format';
+const COLOR_BG_KEY       = 'dh_color_bg';
+const COLOR_SURFACE_KEY  = 'dh_color_surface';
+const COLOR_ACCENT_KEY   = 'dh_color_accent';
+const COLOR_TEXT_KEY     = 'dh_color_text';
+const DEFAULT_STATE_KEY  = 'dh_default_state';
+const API_KEY_STORE      = 'dh_api_key';
+const API_LOCKED_KEY     = 'dh_api_locked';
+const AVG_MODE_KEY       = 'dh_avg_mode';
+const AVG_MIN_KEY        = 'dh_avg_min';
+const AVG_MAX_KEY        = 'dh_avg_max';
+const SEPARATOR_KEY      = 'dh_separator';
+const YEAR_TOTALS_KEY    = 'dh_year_totals';
+const COPY_FORMAT_KEY    = 'dh_copy_format';
+const FONT_KEY           = 'dh_ui_font';
+const FONT_SIZE_KEY      = 'dh_ui_font_size';
+const DENSITY_KEY        = 'dh_ui_density';
+const CUSTOM_TITLE_KEY   = 'dh_custom_title';
+const HEADER_COMPACT_KEY = 'dh_header_compact';
+const ZEBRA_KEY          = 'dh_zebra';
+const TRANSITIONS_KEY    = 'dh_transitions';
+const MAX_HISTORY = 10;
+
+const DEFAULT_COLORS = { bg: '#f7f6f3', surface: '#ffffff', accent: '#1a5fb4', text: '#1a1917' };
+
+let activeMode   = 'fec';
+let allContribs  = [];
+let yearOrderDesc = false;
+let amtFormat    = 'k'; // 'k' | 'comma' | 'k1'
+let selectedIds  = new Set();
+let renameSourceKey = null;
+let sortCol = 'cycle', sortDir = 1;
+let lastClickedRowIdx = null;
+let lastFileName = '';
+let debugModeOn  = false;
+let avgMode      = 'all';   // 'all' | 'positive'
+let avgMin       = null;    // number or null
+let avgMax       = null;    // number or null
+let separator    = '; ';    // '; ' | ' | ' | '\n'
+let showYearTotals = false;
+let copyFormat   = 'plain'; // 'plain' | 'markdown'
+let apiLocked    = false;
+let uiFont       = 'system';
+let uiFontSize   = 'medium';
+let uiDensity    = 'comfortable';
+
+// ── Helpers ───────────────────────────────────────────────────────────────────
+function setStatus(html) { document.getElementById('search-status').innerHTML = html || ''; }
+function setError(msg)   { document.getElementById('search-error').innerHTML = msg ? '<div class="error-msg">' + msg + '</div>' : ''; }
+function escHtml(s) { return String(s||'').replace(/&/g,'&amp;').replace(/"/g,'&quot;').replace(/</g,'&lt;').replace(/>/g,'&gt;'); }
+function getEffectiveLast(c) { return (c.customLast || c.candidateLast || '?').trim(); }
+function ls(key, def) { try { return localStorage.getItem(key) ?? def; } catch { return def; } }
+function lsSet(key, val) { try { localStorage.setItem(key, val); } catch {} }
+
+// ── Amount formatting ─────────────────────────────────────────────────────────
+function fmtAmt(n) {
+  const neg = n < 0;
+  const abs = Math.abs(n);
+  const sign = neg ? '-' : '';
+  if (amtFormat === 'comma') {
+    return sign + '$' + Math.round(abs).toLocaleString();
+  }
+  if (amtFormat === 'k1') {
+    if (abs >= 1000) {
+      const k = abs / 1000;
+      return sign + '$' + k.toFixed(1) + 'K';
+    }
+    return sign + '$' + Math.round(abs);
+  }
+  // default 'k'
+  if (abs >= 1000) {
+    const k = abs / 1000, r = Math.round(k * 10) / 10;
+    return sign + '$' + (r % 1 === 0 ? r.toFixed(0) : r.toFixed(1)) + 'K';
+  }
+  return sign + '$' + Math.round(abs);
+}
+
+function setAmtFormat(fmt) {
+  amtFormat = fmt;
+  lsSet(AMT_FORMAT_KEY, fmt);
+  document.querySelectorAll('[data-fmt]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.fmt === fmt);
+  });
+}
+
+function sepFromKey(val) {
+  if (val === 'pipe')    return ' | ';
+  if (val === 'emdash')  return ' — ';
+  if (val === 'comma')   return ', ';
+  if (val === 'bullet')  return ' · ';
+  if (val === 'newline') return '\n  ';
+  return '; '; // 'semi' default
+}
+
+function setSeparator(val) {
+  separator = sepFromKey(val);
+  lsSet(SEPARATOR_KEY, val);
+  document.querySelectorAll('[data-sep]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.sep === val);
+  });
+}
+
+function setYearTotals(on) {
+  showYearTotals = on;
+  lsSet(YEAR_TOTALS_KEY, on ? '1' : '0');
+  document.querySelectorAll('[data-yeartotals]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.yeartotals === (on ? 'on' : 'off'));
+  });
+}
+
+function setCopyFormat(fmt) {
+  copyFormat = fmt;
+  lsSet(COPY_FORMAT_KEY, fmt);
+  document.querySelectorAll('[data-copyfmt]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.copyfmt === fmt);
+  });
+}
+
+function initOutputSettings() {
+  const sep = ls(SEPARATOR_KEY, 'semi');
+  separator = sepFromKey(sep);
+  document.querySelectorAll('[data-sep]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.sep === sep);
+  });
+  showYearTotals = ls(YEAR_TOTALS_KEY, '0') === '1';
+  document.querySelectorAll('[data-yeartotals]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.yeartotals === (showYearTotals ? 'on' : 'off'));
+  });
+  copyFormat = ls(COPY_FORMAT_KEY, 'plain');
+  document.querySelectorAll('[data-copyfmt]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.copyfmt === copyFormat);
+  });
+}
+
+// ── Average settings ──────────────────────────────────────────────────────────
+function setAvgMode(mode) {
+  avgMode = mode;
+  lsSet(AVG_MODE_KEY, mode);
+  document.querySelectorAll('[data-avgmode]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.avgmode === mode);
+  });
+}
+
+function setAvgMin(val) {
+  const n = val === '' ? null : parseFloat(val);
+  avgMin = (n === null || isNaN(n)) ? null : n;
+  lsSet(AVG_MIN_KEY, avgMin === null ? '' : String(avgMin));
+}
+
+function setAvgMax(val) {
+  const n = val === '' ? null : parseFloat(val);
+  avgMax = (n === null || isNaN(n)) ? null : n;
+  lsSet(AVG_MAX_KEY, avgMax === null ? '' : String(avgMax));
+}
+
+function initAvgSettings() {
+  avgMode = ls(AVG_MODE_KEY, 'all');
+  const minStr = ls(AVG_MIN_KEY, '');
+  const maxStr = ls(AVG_MAX_KEY, '');
+  avgMin = minStr === '' ? null : parseFloat(minStr);
+  avgMax = maxStr === '' ? null : parseFloat(maxStr);
+  if (isNaN(avgMin)) avgMin = null;
+  if (isNaN(avgMax)) avgMax = null;
+  document.querySelectorAll('[data-avgmode]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.avgmode === avgMode);
+  });
+  const minEl = document.getElementById('avg-min-input');
+  const maxEl = document.getElementById('avg-max-input');
+  if (minEl) minEl.value = avgMin === null ? '' : avgMin;
+  if (maxEl) maxEl.value = avgMax === null ? '' : avgMax;
+}
+
+// Helper: compute avg line string from an array of entry objects {total}
+function computeAvgLine(entries) {
+  if (avgMode === 'off') return null;
+  const filtered = entries.filter(function(e) {
+    if (avgMode === 'positive' && e.total <= 0) return false;
+    if (avgMin !== null && e.total < avgMin) return false;
+    if (avgMax !== null && e.total > avgMax) return false;
+    return true;
+  });
+  if (!filtered.length) return null;
+  const sum = filtered.reduce(function(s, e) { return s + e.total; }, 0);
+  const avg = sum / filtered.length;
+  const parts = [];
+  if (avgMode === 'positive') parts.push('positive only');
+  if (avgMin !== null) parts.push('min ' + fmtAmt(avgMin));
+  if (avgMax !== null) parts.push('max ' + fmtAmt(avgMax));
+  const settingsDesc = parts.length ? '; ' + parts.join(', ') : '';
+  return 'Avg: ' + fmtAmt(Math.round(avg)) + ' (' + filtered.length + ' contribution' + (filtered.length !== 1 ? 's' : '') + settingsDesc + ')';
+}
+
+// ── Year order ────────────────────────────────────────────────────────────────
+function setYearOrder(desc) {
+  yearOrderDesc = desc;
+  lsSet(YEAR_ORDER_KEY, desc ? '1' : '0');
+  document.querySelectorAll('[data-yearorder]').forEach(function(el) {
+    el.classList.toggle('selected', (el.dataset.yearorder === 'desc') === desc);
+  });
+}
+
+function applyYearOrderUI() {
+  document.querySelectorAll('[data-yearorder]').forEach(function(el) {
+    el.classList.toggle('selected', (el.dataset.yearorder === 'desc') === yearOrderDesc);
+  });
+}
+
+// ── Color scheme ──────────────────────────────────────────────────────────────
+function applyColor(prop, value, fromPreset) {
+  document.documentElement.style.setProperty('--' + prop, value);
+  // derived: accent-bg is a light tint of accent
+  if (prop === 'accent') {
+    document.documentElement.style.setProperty('--accent-bg', hexToTint(value, 0.12));
+  }
+  lsSet('dh_color_' + prop, value);
+  // if changed via custom picker (not preset), clear preset highlight
+  if (!fromPreset) {
+    document.querySelectorAll('.color-preset-btn').forEach(function(btn) { btn.classList.remove('active'); });
+    lsSet('dh_color_preset', '');
+  }
+  // sync pickers
+  const picker = document.getElementById('color-' + prop);
+  if (picker && picker.value !== value) picker.value = value;
+}
+
+function hexToTint(hex, amount) {
+  // Mix hex with white at given amount (0=white, 1=original)
+  try {
+    const r = parseInt(hex.slice(1,3), 16);
+    const g = parseInt(hex.slice(3,5), 16);
+    const b = parseInt(hex.slice(5,7), 16);
+    const tr = Math.round(r + (255 - r) * (1 - amount));
+    const tg = Math.round(g + (255 - g) * (1 - amount));
+    const tb = Math.round(b + (255 - b) * (1 - amount));
+    return '#' + [tr,tg,tb].map(v => v.toString(16).padStart(2,'0')).join('');
+  } catch { return '#eef3fb'; }
+}
+
+function resetColors() {
+  Object.entries(DEFAULT_COLORS).forEach(function([prop, val]) {
+    applyColor(prop, val, true);
+  });
+  document.documentElement.style.setProperty('--accent-bg', '#eef3fb');
+  lsSet(COLOR_BG_KEY, '');
+  lsSet(COLOR_SURFACE_KEY, '');
+  lsSet(COLOR_ACCENT_KEY, '');
+  lsSet(COLOR_TEXT_KEY, '');
+  document.querySelectorAll('.color-preset-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.preset === 'default');
+  });
+  lsSet('dh_color_preset', 'default');
+}
+
+const COLOR_PRESETS = {
+  default:   { bg: '#f7f6f3', surface: '#ffffff', accent: '#1a5fb4', text: '#1a1917' },
+  dark:      { bg: '#1c1c1e', surface: '#2c2c2e', accent: '#4a9eff', text: '#f0f0f0' },
+  slate:     { bg: '#eef0f4', surface: '#f8f9fb', accent: '#4361a8', text: '#1e2333' },
+  forest:    { bg: '#f0f4f0', surface: '#ffffff', accent: '#2e7d32', text: '#1a2b1a' },
+  rose:      { bg: '#fdf4f4', surface: '#ffffff', accent: '#b5294e', text: '#2a1a1c' },
+  contrast:  { bg: '#ffffff', surface: '#f0f0f0', accent: '#0000cc', text: '#000000' },
+  midnight:  { bg: '#0d1117', surface: '#161b22', accent: '#58a6ff', text: '#e6edf3' },
+  amber:     { bg: '#fdf8ee', surface: '#fffdf5', accent: '#b45309', text: '#1c1508' },
+  ocean:     { bg: '#e8f4f8', surface: '#f0f9fc', accent: '#0077b6', text: '#0a2540' },
+  lavender:  { bg: '#f3f0ff', surface: '#faf8ff', accent: '#7c3aed', text: '#1e1433' },
+  terminal:  { bg: '#0a0a0a', surface: '#111111', accent: '#00ff41', text: '#00ff41' },
+  chaos:     { bg: '#ff006e', surface: '#ffbe0b', accent: '#3a86ff', text: '#1a0030' },
+};
+
+// ── Customization: font / size / density / title ──────────────────────────────
+const FONT_MAP = {
+  system:       '-apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif',
+  georgia:      'Georgia, "Times New Roman", serif',
+  mono:         '"Courier New", Courier, monospace',
+  opendyslexic: '"OpenDyslexic", "Comic Sans MS", cursive',
+  atkinson:     '"Atkinson Hyperlegible", sans-serif',
+  comic:        '"Comic Sans MS", "Comic Sans", cursive',
+  papyrus:      'Papyrus, fantasy',
+  wingdings:    'Wingdings, "Wingdings 2", "Wingdings 3", fantasy',
+};
+const FONT_SIZE_MAP = { small: '13px', medium: '15px', large: '17px' };
+const DENSITY_MAP   = { compact: '4px 6px', comfortable: '7px 8px', spacious: '13px 12px' };
+
+function setFont(name) {
+  uiFont = name;
+  lsSet(FONT_KEY, name);
+  const family = FONT_MAP[name] || FONT_MAP.system;
+  document.documentElement.style.setProperty('--ui-font', family);
+  document.querySelectorAll('[data-font]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.font === name);
+  });
+}
+
+function setFontSize(size) {
+  uiFontSize = size;
+  lsSet(FONT_SIZE_KEY, size);
+  const px = FONT_SIZE_MAP[size] || FONT_SIZE_MAP.medium;
+  document.documentElement.style.setProperty('--ui-size', px);
+  document.querySelectorAll('[data-fontsize]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.fontsize === size);
+  });
+}
+
+function setDensity(density) {
+  uiDensity = density;
+  lsSet(DENSITY_KEY, density);
+  const pad = DENSITY_MAP[density] || DENSITY_MAP.comfortable;
+  document.documentElement.style.setProperty('--row-pad', pad);
+  document.querySelectorAll('[data-density]').forEach(function(el) {
+    el.classList.toggle('selected', el.dataset.density === density);
+  });
+}
+
+function applyCustomTitle(val) {
+  lsSet(CUSTOM_TITLE_KEY, val.trim());
+  const titleEl = document.getElementById('app-title');
+  if (titleEl) titleEl.textContent = val.trim() || 'Donor History Formatter';
+}
+
+function resetCustomTitle() {
+  lsSet(CUSTOM_TITLE_KEY, '');
+  const inp = document.getElementById('custom-title-input');
+  if (inp) inp.value = '';
+  const titleEl = document.getElementById('app-title');
+  if (titleEl) titleEl.textContent = 'Donor History Formatter';
+}
+
+function setHeaderCompact(on) {
+  lsSet(HEADER_COMPACT_KEY, on ? '1' : '0');
+  document.querySelector('header').classList.toggle('compact', on);
+  document.querySelectorAll('[data-header]').forEach(function(el) {
+    el.classList.toggle('selected', (el.dataset.header === 'compact') === on);
+  });
+}
+
+function setZebra(on) {
+  lsSet(ZEBRA_KEY, on ? '1' : '0');
+  const tbl = document.getElementById('main-table');
+  if (tbl) tbl.classList.toggle('zebra', on);
+  document.querySelectorAll('[data-zebra]').forEach(function(el) {
+    el.classList.toggle('selected', (el.dataset.zebra === 'on') === on);
+  });
+}
+
+function setTransitions(on) {
+  lsSet(TRANSITIONS_KEY, on ? '1' : '0');
+  document.body.classList.toggle('no-transitions', !on);
+  document.querySelectorAll('[data-transitions]').forEach(function(el) {
+    el.classList.toggle('selected', (el.dataset.transitions === 'on') === on);
+  });
+}
+
+function initCustomization() {
+  const savedFont    = ls(FONT_KEY, 'system');
+  const savedSize    = ls(FONT_SIZE_KEY, 'medium');
+  const savedDensity = ls(DENSITY_KEY, 'comfortable');
+  const savedTitle   = ls(CUSTOM_TITLE_KEY, '');
+
+  setFont(savedFont);
+  setFontSize(savedSize);
+  setDensity(savedDensity);
+  setHeaderCompact(ls(HEADER_COMPACT_KEY, '0') === '1');
+  setZebra(ls(ZEBRA_KEY, '0') === '1');
+  setTransitions(ls(TRANSITIONS_KEY, '1') !== '0');
+
+  const titleInp = document.getElementById('custom-title-input');
+  if (savedTitle && titleInp) {
+    titleInp.value = savedTitle;
+    document.getElementById('app-title').textContent = savedTitle;
+  }
+}
+
+function exportColors() {
+  const data = {
+    colors: {
+      bg:      ls(COLOR_BG_KEY, DEFAULT_COLORS.bg),
+      surface: ls(COLOR_SURFACE_KEY, DEFAULT_COLORS.surface),
+      accent:  ls(COLOR_ACCENT_KEY, DEFAULT_COLORS.accent),
+      text:    ls(COLOR_TEXT_KEY, DEFAULT_COLORS.text),
+      preset:  ls('dh_color_preset', ''),
+    },
+    customization: {
+      font:        ls(FONT_KEY, 'system'),
+      size:        ls(FONT_SIZE_KEY, 'medium'),
+      density:     ls(DENSITY_KEY, 'comfortable'),
+      title:       ls(CUSTOM_TITLE_KEY, ''),
+      compact:     ls(HEADER_COMPACT_KEY, '0'),
+      zebra:       ls(ZEBRA_KEY, '0'),
+      transitions: ls(TRANSITIONS_KEY, '1'),
+    },
+  };
+  const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob);
+  a.download = 'donor-history-theme.json';
+  a.click();
+}
+
+function importColors(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const parsed = JSON.parse(e.target.result);
+      // Support both old flat format and new nested format
+      const c = parsed.colors || parsed;
+      const custom = parsed.customization || {};
+
+      if (c.bg)      applyColor('bg',      c.bg,      true);
+      if (c.surface) applyColor('surface', c.surface, true);
+      if (c.accent)  applyColor('accent',  c.accent,  true);
+      if (c.text)    applyColor('text',    c.text,    true);
+      if (c.preset) {
+        lsSet('dh_color_preset', c.preset);
+        document.querySelectorAll('.color-preset-btn').forEach(function(btn) {
+          btn.classList.toggle('active', btn.dataset.preset === c.preset);
+        });
+      } else {
+        document.querySelectorAll('.color-preset-btn').forEach(function(btn) { btn.classList.remove('active'); });
+        lsSet('dh_color_preset', '');
+      }
+
+      if (custom.font)        setFont(custom.font);
+      if (custom.size)        setFontSize(custom.size);
+      if (custom.density)     setDensity(custom.density);
+      if (custom.compact !== undefined) setHeaderCompact(custom.compact === '1');
+      if (custom.zebra !== undefined)   setZebra(custom.zebra === '1');
+      if (custom.transitions !== undefined) setTransitions(custom.transitions !== '0');
+      if (custom.title !== undefined) {
+        const inp = document.getElementById('custom-title-input');
+        if (inp) {
+          inp.value = custom.title;
+          applyCustomTitle(custom.title);
+        }
+      }
+    } catch { alert('Invalid theme file.'); }
+  };
+  reader.readAsText(file);
+  input.value = '';
+}
+
+function applyColorPreset(name) {
+  const preset = COLOR_PRESETS[name];
+  if (!preset) return;
+  Object.entries(preset).forEach(function([prop, val]) { applyColor(prop, val, true); });
+  document.querySelectorAll('.color-preset-btn').forEach(function(btn) {
+    btn.classList.toggle('active', btn.dataset.preset === name);
+  });
+  lsSet('dh_color_preset', name);
+}
+
+function initColors() {
+  const saved = {
+    bg:      ls(COLOR_BG_KEY, ''),
+    surface: ls(COLOR_SURFACE_KEY, ''),
+    accent:  ls(COLOR_ACCENT_KEY, ''),
+    text:    ls(COLOR_TEXT_KEY, '')
+  };
+  Object.entries(saved).forEach(function([prop, val]) {
+    if (val) applyColor(prop, val);
+    else applyColor(prop, DEFAULT_COLORS[prop]);
+  });
+  // restore active preset highlight (custom pickers don't count as a preset)
+  const savedPreset = ls('dh_color_preset', '');
+  if (savedPreset) {
+    document.querySelectorAll('.color-preset-btn').forEach(function(btn) {
+      btn.classList.toggle('active', btn.dataset.preset === savedPreset);
+    });
+  }
+}
+
+// ── API key & lock ────────────────────────────────────────────────────────────
+function initApiKey() {
+  const key    = ls(API_KEY_STORE, '');
+  const locked = ls(API_LOCKED_KEY, '0') === '1';
+  const inp    = document.getElementById('settings-api-key');
+  const btn    = document.getElementById('api-lock-btn');
+  inp.value    = key;
+  apiLocked    = locked;
+  inp.readOnly = locked;
+  inp.style.opacity = locked ? '0.6' : '1';
+  btn.textContent   = locked ? '🔒' : '🔓';
+  btn.title         = locked ? 'Unlock to edit' : 'Lock to prevent edits';
+}
+
+function saveApiKey() {
+  if (apiLocked) return;
+  lsSet(API_KEY_STORE, document.getElementById('settings-api-key').value.trim());
+}
+
+function toggleApiLock() {
+  apiLocked = !apiLocked;
+  lsSet(API_LOCKED_KEY, apiLocked ? '1' : '0');
+  const inp = document.getElementById('settings-api-key');
+  const btn = document.getElementById('api-lock-btn');
+  inp.readOnly = apiLocked;
+  inp.style.opacity = apiLocked ? '0.6' : '1';
+  btn.textContent   = apiLocked ? '🔒' : '🔓';
+  btn.title         = apiLocked ? 'Unlock to edit' : 'Lock to prevent edits';
+  if (!apiLocked) setTimeout(function() { inp.focus(); inp.select(); }, 50);
+}
+
+function getApiKey() {
+  // Settings field takes priority over hardcoded default
+  const saved = ls(API_KEY_STORE, '');
+  return saved || '';
+}
+
+// ── Default state ─────────────────────────────────────────────────────────────
+function saveDefaultState(val) {
+  lsSet(DEFAULT_STATE_KEY, val);
+  // apply to current FEC filter
+  const sel = document.getElementById('fec-stateFilter');
+  if (sel) sel.value = val;
+}
+
+function initDefaultState() {
+  const saved = ls(DEFAULT_STATE_KEY, '');
+  const settingsSel = document.getElementById('settings-default-state');
+  if (settingsSel) settingsSel.value = saved;
+  const fecSel = document.getElementById('fec-stateFilter');
+  if (fecSel && saved) fecSel.value = saved;
+}
+
+// ── Debug mode ────────────────────────────────────────────────────────────────
+function initDebugMode() {
+  try { debugModeOn = localStorage.getItem(DEBUG_MODE_KEY) === '1'; } catch { debugModeOn = false; }
+  applyDebugMode();
+}
+function setDebugMode(on) {
+  debugModeOn = on;
+  lsSet(DEBUG_MODE_KEY, on ? '1' : '0');
+  applyDebugMode();
+}
+function applyDebugMode() {
+  document.querySelectorAll('[data-debug]').forEach(function(el) {
+    el.classList.toggle('selected', (el.dataset.debug === 'on') === debugModeOn);
+  });
+  document.getElementById('debug-btn').style.display = debugModeOn ? '' : 'none';
+}
+
+// ── Mode switching ────────────────────────────────────────────────────────────
+function switchMode(mode) {
+  activeMode = mode;
+  document.getElementById('mode-btn-fec').classList.toggle('active', mode === 'fec');
+  document.getElementById('mode-btn-il').classList.toggle('active', mode === 'il');
+  document.getElementById('fec-ui').style.display = mode === 'fec' ? '' : 'none';
+  document.getElementById('il-ui').style.display  = mode === 'il'  ? '' : 'none';
+  document.getElementById('il-cycle-row').style.display = mode === 'il' ? '' : 'none';
+  document.getElementById('btn-excl-inkind').style.display = mode === 'il' ? '' : 'none';
+  document.getElementById('btn-excl-loans').style.display  = mode === 'il' ? '' : 'none';
+  document.getElementById('btn-excl-neg').style.display    = mode === 'fec' ? '' : 'none';
+  document.getElementById('col-cycle-header').textContent  = mode === 'il' ? 'Year' : 'Cycle';
+  document.getElementById('tab-input-label').textContent   = mode === 'fec' ? '🔍 Search' : '📄 Upload / Paste';
+  document.getElementById('mode-desc').textContent = mode === 'fec'
+    ? 'Federal Election Commission · Individual Contributions'
+    : 'Illinois State Board of Elections · Receipts Records · 1-Year Cycles';
+  document.getElementById('footer-text').innerHTML = mode === 'fec'
+    ? 'Data from <a href="https://www.fec.gov/" target="_blank">Federal Election Commission</a> via OpenFEC API &middot; Only itemized contributions over $200 appear &middot; Runs entirely in your browser'
+    : 'Data from <a href="https://www.elections.il.gov/" target="_blank">Illinois State Board of Elections</a> campaign disclosure exports &middot; Parsed entirely in your browser';
+  document.getElementById('memo-popup-label').textContent = mode === 'il' ? 'Description' : 'Memo';
+
+  if (mode === 'il') {
+    document.getElementById('presets-intro-text').innerHTML =
+      'Presets auto-correct committee names to the right candidate last name whenever you parse records. ' +
+      'For example: map <strong>"New Day Bill Conway"</strong> to <strong>"Conway"</strong>. ' +
+      'Presets are saved separately per mode and persist across sessions.';
+  } else {
+    document.getElementById('presets-intro-text').innerHTML =
+      'Presets auto-correct committee names to the right last name whenever you run a search. ' +
+      'For example: if a committee name contains <strong>"Tammy"</strong>, map it to <strong>"Duckworth"</strong>. ' +
+      'Presets are saved separately per mode and persist across sessions.';
+  }
+
+  document.getElementById('history-col-name').textContent = mode === 'il' ? 'Name filter' : 'Name';
+  document.getElementById('history-col-source').style.display = mode === 'il' ? '' : 'none';
+
+  // apply default state to FEC filter when switching to FEC
+  if (mode === 'fec') {
+    const defState = ls(DEFAULT_STATE_KEY, '');
+    if (defState) document.getElementById('fec-stateFilter').value = defState;
+  }
+
+  allContribs = [];
+  selectedIds.clear();
+  document.getElementById('review-card').style.display = 'none';
+  document.getElementById('output-card').style.display = 'none';
+  setStatus('');
+  setError('');
+  renderPresets();
+  renderHistory();
+}
+
+function getPresetsKey() { return activeMode === 'fec' ? FEC_PRESETS_KEY : IL_PRESETS_KEY; }
+function getHistoryKey()  { return activeMode === 'fec' ? FEC_HISTORY_KEY : IL_HISTORY_KEY; }
+
+// ── Tabs ─────────────────────────────────────────────────────────────────────
+function switchTab(name) {
+  document.querySelectorAll('.tab-btn').forEach(function(b) {
+    const id = b.id;
+    let match = false;
+    if (name === 'input'    && id === 'tab-btn-input') match = true;
+    if (name === 'presets'  && b.textContent.includes('Presets'))  match = true;
+    if (name === 'history'  && b.textContent.includes('History'))  match = true;
+    if (name === 'settings' && b.textContent.includes('Settings')) match = true;
+    if (name === 'merge'    && b.textContent.includes('Merge'))    match = true;
+    b.classList.toggle('active', match);
+  });
+  document.querySelectorAll('.tab-content').forEach(function(el) {
+    el.classList.toggle('active', el.id === 'tab-' + name);
+  });
+}
+
+// ── Presets ───────────────────────────────────────────────────────────────────
+function loadPresets() { try { return JSON.parse(localStorage.getItem(getPresetsKey()) || '[]'); } catch { return []; } }
+function savePresets(list) { try { localStorage.setItem(getPresetsKey(), JSON.stringify(list)); } catch {} }
+
+function renderPresets() {
+  const list  = loadPresets();
+  const tbody = document.getElementById('presets-body');
+  const table = document.getElementById('presets-table');
+  const empty = document.getElementById('presets-empty');
+  tbody.innerHTML = '';
+  if (!list.length) { table.style.display = 'none'; empty.style.display = 'block'; return; }
+  table.style.display = 'table'; empty.style.display = 'none';
+  list.forEach(function(p, i) {
+    const tr = document.createElement('tr');
+    tr.innerHTML =
+      '<td><input class="preset-edit-input" value="' + escHtml(p.keyword) + '" onchange="updatePreset(' + i + ', \'keyword\', this.value)" /></td>' +
+      '<td><input class="preset-edit-input" value="' + escHtml(p.lastName) + '" onchange="updatePreset(' + i + ', \'lastName\', this.value)" /></td>' +
+      '<td style="text-align:right"><button class="sm danger" onclick="deletePreset(' + i + ')">Remove</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function addPreset() {
+  const kw = document.getElementById('preset-keyword').value.trim();
+  const ln = document.getElementById('preset-lastname').value.trim();
+  if (!kw || !ln) { alert('Enter both a keyword and a last name.'); return; }
+  const list = loadPresets();
+  if (list.find(function(p) { return p.keyword.toLowerCase() === kw.toLowerCase(); })) {
+    alert('A preset for "' + kw + '" already exists. Edit it in the table below.'); return;
+  }
+  list.push({ keyword: kw, lastName: ln });
+  savePresets(list);
+  document.getElementById('preset-keyword').value = '';
+  document.getElementById('preset-lastname').value = '';
+  renderPresets();
+  setPresetStatus('✓ Preset added: "' + kw + '" → "' + ln + '"');
+}
+
+function updatePreset(i, field, val) {
+  const list = loadPresets();
+  if (list[i]) { list[i][field] = val.trim(); savePresets(list); }
+}
+
+function deletePreset(i) {
+  const list = loadPresets();
+  list.splice(i, 1);
+  savePresets(list);
+  renderPresets();
+}
+
+function clearAllPresets() {
+  if (!confirm('Clear all presets?')) return;
+  savePresets([]);
+  renderPresets();
+}
+
+function exportPresets() {
+  const list = loadPresets();
+  if (!list.length) { alert('No presets to export.'); return; }
+  const fname = activeMode === 'fec' ? 'fec-name-presets.json' : 'il-name-presets.json';
+  const blob = new Blob([JSON.stringify(list, null, 2)], { type: 'application/json' });
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(blob); a.download = fname; a.click();
+}
+
+function importPresets(input) {
+  const file = input.files[0]; if (!file) return;
+  const reader = new FileReader();
+  reader.onload = function(e) {
+    try {
+      const imported = JSON.parse(e.target.result);
+      if (!Array.isArray(imported)) throw new Error('Not an array');
+      const valid = imported.filter(function(p) { return p.keyword && p.lastName; });
+      const existing = loadPresets();
+      let added = 0;
+      valid.forEach(function(p) {
+        if (!existing.find(function(ex) { return ex.keyword.toLowerCase() === p.keyword.toLowerCase(); })) {
+          existing.push(p); added++;
+        }
+      });
+      savePresets(existing); renderPresets();
+      setPresetStatus('✓ Imported ' + added + ' preset' + (added !== 1 ? 's' : '') + '.');
+    } catch { alert('Invalid presets file.'); }
+  };
+  reader.readAsText(file); input.value = '';
+}
+
+function setPresetStatus(msg) {
+  const el = document.getElementById('presets-status');
+  el.textContent = msg;
+  setTimeout(function() { el.textContent = ''; }, 3000);
+}
+
+function applyPresets(committeeName) {
+  const list = loadPresets();
+  const lower = committeeName.toLowerCase();
+  for (var i = 0; i < list.length; i++) {
+    if (lower.indexOf(list[i].keyword.toLowerCase()) !== -1) return list[i].lastName;
+  }
+  return null;
+}
+
+function saveAsPreset() {
+  const newName = document.getElementById('rename-target').value.trim();
+  if (!newName || !renameSourceKey) return;
+  const list = loadPresets();
+  const existing = list.find(function(p) { return p.keyword.toLowerCase() === renameSourceKey; });
+  if (existing) {
+    existing.lastName = newName; savePresets(list);
+    setPresetStatus('✓ Updated preset: "' + renameSourceKey + '" → "' + newName + '"');
+  } else {
+    list.push({ keyword: renameSourceKey, lastName: newName }); savePresets(list);
+    setPresetStatus('✓ Preset saved: "' + renameSourceKey + '" → "' + newName + '"');
+  }
+  renderPresets();
+}
+
+// ── History ───────────────────────────────────────────────────────────────────
+function loadHistory() { try { return JSON.parse(localStorage.getItem(getHistoryKey()) || '[]'); } catch { return []; } }
+function saveHistory(list) {
+  try { localStorage.setItem(getHistoryKey(), JSON.stringify(list)); } catch {
+    const trimmed = list.map(function(h) { return Object.assign({}, h, { rows: [] }); });
+    try { localStorage.setItem(getHistoryKey(), JSON.stringify(trimmed)); } catch {}
+  }
+}
+
+function addToHistory(entry) {
+  let list = loadHistory();
+  list = list.filter(function(h) { return !(h.lastName === entry.lastName && h.firstName === entry.firstName && h.source === entry.source); });
+  list.unshift(entry);
+  if (list.length > MAX_HISTORY) list = list.slice(0, MAX_HISTORY);
+  saveHistory(list); renderHistory();
+}
+
+function renderHistory() {
+  const list     = loadHistory();
+  const table    = document.getElementById('history-table');
+  const empty    = document.getElementById('history-empty');
+  const clearRow = document.getElementById('history-clear-row');
+  const tbody    = document.getElementById('history-body');
+  tbody.innerHTML = '';
+  if (!list.length) { table.style.display = 'none'; empty.style.display = 'block'; clearRow.style.display = 'none'; return; }
+  table.style.display = 'table'; empty.style.display = 'none'; clearRow.style.display = 'flex';
+  list.forEach(function(h, i) {
+    const tr = document.createElement('tr');
+    const cycleSorted = [...(h.cycles || [])].sort(function(a,b) { return b - a; });
+    const shown = cycleSorted.slice(0, 6);
+    const extra = cycleSorted.length > 6 ? cycleSorted.length - 6 : 0;
+    const cycleHtml = shown.map(function(c) { return '<span class="history-cycle-pip">' + c + '</span>'; }).join('') +
+      (extra ? '<span class="history-cycle-pip">+' + extra + '</span>' : '');
+    const ago = timeAgo(h.timestamp);
+    const nameHtml = h.lastName
+      ? '<strong>' + escHtml(h.lastName) + (h.firstName ? ', ' + escHtml(h.firstName) : '') + '</strong>'
+      : '<span style="color:var(--text-faint)">All contributors</span>';
+    const sourceCell = activeMode === 'il'
+      ? '<td style="color:var(--text-muted)" class="trunc-sm" title="' + escHtml(h.source || '') + '">' + escHtml(h.source || '') + '</td>'
+      : '';
+    const canLoad = activeMode === 'fec' || (h.rows && h.rows.length);
+    tr.innerHTML =
+      '<td>' + nameHtml + (activeMode === 'fec' && h.state ? ' <span style="color:var(--text-faint);font-size:12px">(' + escHtml(h.state) + ')</span>' : '') + '</td>' +
+      sourceCell +
+      '<td><div class="history-cycles">' + cycleHtml + '</div></td>' +
+      '<td style="color:var(--text-muted)">' + h.resultCount + ' contributions</td>' +
+      '<td style="color:var(--text-faint);white-space:nowrap">' + ago + '</td>' +
+      '<td style="text-align:right"><button class="sm primary" onclick="rerunSearch(' + i + ')"' + (canLoad ? '' : ' disabled title="Row data was trimmed; re-paste to reload"') + '>Load</button></td>';
+    tbody.appendChild(tr);
+  });
+}
+
+function rerunSearch(i) {
+  const h = loadHistory()[i]; if (!h) return;
+  if (activeMode === 'fec') {
+    document.getElementById('fec-lastName').value = h.lastName || '';
+    document.getElementById('fec-firstName').value = h.firstName || '';
+    document.getElementById('fec-stateFilter').value = h.state || '';
+    document.querySelectorAll('#fec-cycle-grid .cycle-chip[data-cycle]').forEach(function(c) {
+      c.classList.toggle('selected', (h.cycles || []).map(String).includes(c.dataset.cycle));
+    });
+    switchTab('input'); doSearch();
+  } else {
+    if (!h.rows || !h.rows.length) return;
+    document.getElementById('il-lastName').value = h.lastName || '';
+    document.getElementById('il-firstName').value = h.firstName || '';
+    allContribs = h.rows.map(function(r) { return Object.assign({}, r); });
+    finishLoad(h.resultCount, true);
+    switchTab('input');
+  }
+}
+
+function clearHistory() {
+  if (!confirm('Clear search history?')) return;
+  saveHistory([]); renderHistory();
+}
+
+function timeAgo(ts) {
+  const diff = Date.now() - ts;
+  const mins = Math.floor(diff / 60000);
+  if (mins < 1) return 'just now';
+  if (mins < 60) return mins + 'm ago';
+  const hrs = Math.floor(mins / 60);
+  if (hrs < 24) return hrs + 'h ago';
+  return Math.floor(hrs / 24) + 'd ago';
+}
+
+// ── FEC: cycle chips ──────────────────────────────────────────────────────────
+document.querySelectorAll('#fec-cycle-grid .cycle-chip[data-cycle]').forEach(function(chip) {
+  chip.addEventListener('click', function() { chip.classList.toggle('selected'); });
+});
+document.getElementById('fec-all-cycles-btn').addEventListener('click', function() {
+  document.querySelectorAll('#fec-cycle-grid .cycle-chip[data-cycle]').forEach(function(c) { c.classList.add('selected'); });
+});
+document.getElementById('fec-clear-cycles-btn').addEventListener('click', function() {
+  document.querySelectorAll('#fec-cycle-grid .cycle-chip[data-cycle]').forEach(function(c) { c.classList.remove('selected'); });
+});
+function fecSelectedCycles() {
+  return [...document.querySelectorAll('#fec-cycle-grid .cycle-chip.selected[data-cycle]')].map(function(c) { return c.dataset.cycle; });
+}
+
+// ── IL: cycle chips (dynamic) ─────────────────────────────────────────────────
+function buildILCycleGrid(years) {
+  const grid = document.getElementById('il-cycle-grid');
+  grid.innerHTML = '';
+  years.forEach(function(y) {
+    const span = document.createElement('span');
+    span.className = 'cycle-chip selected'; span.dataset.cycle = y; span.textContent = y;
+    span.addEventListener('click', function() { span.classList.toggle('selected'); });
+    grid.appendChild(span);
+  });
+  const allBtn = document.createElement('span');
+  allBtn.className = 'cycle-chip meta'; allBtn.textContent = 'All';
+  allBtn.addEventListener('click', function() { grid.querySelectorAll('.cycle-chip[data-cycle]').forEach(function(c) { c.classList.add('selected'); }); });
+  grid.appendChild(allBtn);
+  const noneBtn = document.createElement('span');
+  noneBtn.className = 'cycle-chip meta'; noneBtn.textContent = 'None';
+  noneBtn.addEventListener('click', function() { grid.querySelectorAll('.cycle-chip[data-cycle]').forEach(function(c) { c.classList.remove('selected'); }); });
+  grid.appendChild(noneBtn);
+}
+function ilSelectedCycles() {
+  return [...document.querySelectorAll('#il-cycle-grid .cycle-chip.selected[data-cycle]')].map(function(c) { return c.dataset.cycle; });
+}
+function selectedCycles() { return activeMode === 'fec' ? fecSelectedCycles() : ilSelectedCycles(); }
+
+// ── Sort headers ──────────────────────────────────────────────────────────────
+document.querySelectorAll('th.sortable').forEach(function(th) {
+  th.addEventListener('click', function() {
+    const col = th.dataset.col;
+    if (sortCol === col) sortDir *= -1; else { sortCol = col; sortDir = 1; }
+    document.querySelectorAll('th.sortable').forEach(function(t) { t.classList.remove('sort-asc','sort-desc'); });
+    th.classList.add(sortDir === 1 ? 'sort-asc' : 'sort-desc');
+    renderTable();
+  });
+});
+
+// ── FEC: guessLast ────────────────────────────────────────────────────────────
+function guessLast(name) {
+  if (!name) return '';
+  let clean = name
+    .replace(/\bfriends of\b/i, '')
+    .replace(/\bfor (congress|senate|u\.?s\.?|the|america|illinois|wisconsin|ohio|michigan|pennsylvania|georgia|florida|arizona|nevada|colorado|virginia|minnesota|north carolina|south carolina|new york|california|texas|maryland|new jersey|indiana|missouri|iowa|kansas|kentucky|tennessee|alabama|alaska|arkansas|connecticut|delaware|hawaii|idaho|louisiana|maine|massachusetts|mississippi|montana|nebraska|new hampshire|new mexico|north dakota|oklahoma|oregon|rhode island|south dakota|utah|vermont|washington|west virginia|wyoming)\b.*/i, '')
+    .replace(/\bfor\b.*$/i, '')
+    .replace(/\bcommittee\b/i, '')
+    .replace(/\bpac\b/i, '')
+    .replace(/\d{4}/g, '')
+    .trim().replace(/,.*$/, '').trim();
+  const parts = clean.split(/\s+/).filter(Boolean);
+  return parts[parts.length - 1] || clean;
+}
+
+// ── IL: guessLastIL ───────────────────────────────────────────────────────────
+function guessLastIL(name) {
+  if (!name) return '';
+  let clean = name;
+  clean = clean.replace(/^\s*(friends?\s+(of|for)|citizens?\s+(for|to\s+elect)|committee\s+(to\s+elect|for)|neighbors?\s+for|team|the\s+committee\s+(to\s+elect|for)|residents?\s+for)\s+/i, '');
+  var officeWords = 'alderman|aldermen|mayor|city council|state central committee|mwrd commissioner|supreme court|appellate court|circuit court|judge|state senate|state representative|state rep|congress|u\\.?s\\.? senate|u\\.?s\\.? house|county board|cook county|clerk|treasurer|recorder|assessor|sheriff|comptroller|governor|lieutenant governor|attorney general|secretary of state|city clerk|city treasurer|ward committeeman|ward committeeperson|committeeman|committeeperson|school board|park district|library board';
+  clean = clean.replace(new RegExp('\\bfor\\s+(the\\s+)?(' + officeWords + ')\\b.*$', 'i'), '');
+  clean = clean.replace(/\bfor\s+(chicago|illinois|congress|senate|america|state|county)\b.*$/i, '');
+  clean = clean.replace(/\bfor\b\s*$/i, '');
+  clean = clean.replace(/\bfor\b.*$/i, function(m) { return m.split(/\s+/).length <= 4 ? '' : m; });
+  clean = clean.replace(/\bcampaign committee\b/i, '').replace(/\bindependent committee\b/i, '').replace(/\bcommittee\b/i, '')
+               .replace(/\bpac\b/i, '').replace(/\bfund\b/i, '').replace(/\binc\.?\b/i, '')
+               .replace(/\bparty\b/i, '').replace(/\d{4}/g, '').replace(/,/g, '');
+  clean = clean.trim();
+  if (!clean) return name.trim();
+  var parts = clean.split(/\s+/).filter(Boolean);
+  while (parts.length > 1) {
+    var last = parts[parts.length - 1].replace(/\.$/, '');
+    if (/^(jr|sr|ii|iii|iv)$/i.test(last)) { parts.pop(); continue; }
+    break;
+  }
+  return parts[parts.length - 1] || clean;
+}
+
+// ── FEC: search ───────────────────────────────────────────────────────────────
+async function doSearch() {
+  const last = document.getElementById('fec-lastName').value.trim();
+  if (!last) { alert('Enter a last name.'); return; }
+  const cycles = fecSelectedCycles();
+  if (!cycles.length) { alert('Select at least one election cycle.'); return; }
+  const first = document.getElementById('fec-firstName').value.trim();
+  const state = document.getElementById('fec-stateFilter').value;
+  const API_KEY = getApiKey();
+  const BASE = 'https://api.open.fec.gov/v1';
+
+  document.getElementById('review-card').style.display = 'none';
+  document.getElementById('output-card').style.display = 'none';
+  setError(''); selectedIds.clear();
+  setStatus('<div class="spinner"></div> Starting search…');
+
+  try {
+    const nameQuery = first ? first + ' ' + last : last;
+    let allResults = [];
+    for (let ci = 0; ci < cycles.length; ci++) {
+      const cycle = cycles[ci];
+      setStatus('<div class="spinner"></div> Fetching cycle ' + cycle + ' (' + (ci+1) + '/' + cycles.length + ')… ' + allResults.length + ' records so far');
+      let url = BASE + '/schedules/schedule_a/?api_key=' + API_KEY + '&per_page=100&is_individual=true';
+      url += '&contributor_name=' + encodeURIComponent(nameQuery);
+      url += '&two_year_transaction_period=' + cycle;
+      if (state) url += '&contributor_state=' + encodeURIComponent(state);
+
+      let lastIndex = null, lastDate = null, page = 0;
+      while (page < 10) {
+        let pageUrl = url;
+        if (lastIndex && lastDate) pageUrl += '&last_index=' + encodeURIComponent(lastIndex) + '&last_contribution_receipt_date=' + encodeURIComponent(lastDate);
+        const resp = await fetch(pageUrl);
+        if (!resp.ok) throw new Error('API ' + resp.status + ' for cycle ' + cycle);
+        const data = await resp.json();
+        const batch = data.results || [];
+        allResults = allResults.concat(batch);
+        if (batch.length < 100 || !data.pagination || !data.pagination.last_indexes || !data.pagination.last_indexes.last_index) break;
+        lastIndex = data.pagination.last_indexes.last_index;
+        lastDate  = data.pagination.last_indexes.last_contribution_receipt_date;
+        page++;
+      }
+    }
+
+    if (!allResults.length) {
+      setStatus('');
+      setError('No contributions found. Try a different name, remove the state filter, or select more cycles.');
+      return;
+    }
+
+    allContribs = allResults.map(function(r, i) {
+      const committee = r.committee && r.committee.name ? r.committee.name : (r.committee_name || '—');
+      const city = r.contributor_city || '';
+      const st   = r.contributor_state || '';
+      const zip  = r.contributor_zip ? r.contributor_zip.slice(0,5) : '';
+      const presetLast = applyPresets(committee);
+      return {
+        id: i,
+        cycle: r.two_year_transaction_period || cycleFromDate(r.contribution_receipt_date),
+        date: r.contribution_receipt_date ? r.contribution_receipt_date.slice(0,10) : '—',
+        committee,
+        rawName: [r.contributor_first_name, r.contributor_last_name].filter(Boolean).join(' ') || r.contributor_name || '—',
+        employer:   r.contributor_employer   || '—',
+        occupation: r.contributor_occupation || '—',
+        memo: r.memo_text || r.memo_code || '',
+        address: [city, st, zip].filter(Boolean).join(', ') || '—',
+        candidateLast: presetLast || guessLast(committee),
+        amount: r.contribution_receipt_amount || 0,
+        excluded: false, customLast: ''
+      };
+    });
+
+    addToHistory({ lastName: last, firstName: first, state, source: '', cycles, resultCount: allResults.length, timestamp: Date.now() });
+    const presetCount = allContribs.filter(function(c) { return applyPresets(c.committee); }).length;
+    setStatus('✓ Found ' + allContribs.length + ' contribution' + (allContribs.length !== 1 ? 's' : '') + ' across ' + cycles.length + ' cycle' + (cycles.length !== 1 ? 's' : '') + '.' + (presetCount ? ' ' + presetCount + ' auto-corrected by presets.' : ''));
+    sortCol = 'cycle'; sortDir = 1;
+    document.querySelectorAll('th.sortable').forEach(function(t) { t.classList.remove('sort-asc','sort-desc'); });
+    document.querySelector('th[data-col="cycle"]').classList.add('sort-asc');
+    closeRenameBanner(); selectedIds.clear();
+    ['name-filter','last-used-filter','filter-input','employer-filter','location-filter','amt-min','amt-max'].forEach(function(id) { document.getElementById(id).value = ''; });
+    renderTable();
+    document.getElementById('review-card').style.display = 'block';
+    document.getElementById('il-cycle-row').style.display = 'none';
+    document.getElementById('review-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  } catch(e) {
+    setStatus(''); setError('Error: ' + e.message);
+  }
+}
+
+function cycleFromDate(d) {
+  if (!d) return null;
+  const m = d.match(/(\d{4})/); if (!m) return null;
+  const yr = parseInt(m[1]); return yr % 2 === 0 ? yr : yr + 1;
+}
+
+// ── IL: file handling ─────────────────────────────────────────────────────────
+function handleFileInput(input) { const file = input.files[0]; if (!file) return; loadILFile(file); }
+
+document.addEventListener('DOMContentLoaded', function() {
+  const zone = document.getElementById('dropzone');
+  ['dragover','dragenter'].forEach(function(evt) { zone.addEventListener(evt, function(e) { e.preventDefault(); zone.classList.add('drag'); }); });
+  ['dragleave','drop'].forEach(function(evt) { zone.addEventListener(evt, function(e) { e.preventDefault(); zone.classList.remove('drag'); }); });
+  zone.addEventListener('drop', function(e) { const file = e.dataTransfer.files[0]; if (file) loadILFile(file); });
+});
+
+function loadILFile(file) {
+  lastFileName = file.name;
+  document.getElementById('dropzone-label').textContent = '📎 ' + file.name;
+  const reader = new FileReader();
+  reader.onload = function(e) { document.getElementById('pasteArea').value = e.target.result; };
+  reader.onerror = function() { setError('Could not read that file.'); };
+  reader.readAsText(file);
+}
+
+// ── IL: CSV parsing ───────────────────────────────────────────────────────────
+function parseCSV(text) {
+  const rows = []; let row = [], field = '', inQuotes = false;
+  const s = text.replace(/\r\n/g, '\n').replace(/\r/g, '\n');
+  for (let i = 0; i < s.length; i++) {
+    const ch = s[i];
+    if (inQuotes) {
+      if (ch === '"') { if (s[i+1] === '"') { field += '"'; i++; } else inQuotes = false; }
+      else field += ch;
+    } else {
+      if (ch === '"') inQuotes = true;
+      else if (ch === ',') { row.push(field); field = ''; }
+      else if (ch === '\n') { row.push(field); rows.push(row); row = []; field = ''; }
+      else field += ch;
+    }
+  }
+  if (field.length || row.length) { row.push(field); rows.push(row); }
+  return rows.filter(function(r) { return r.some(function(v) { return v.trim() !== ''; }); });
+}
+
+const HEADER_ALIASES = {
+  committeeid: 'committeeId', committeename: 'committeeName', contributedby: 'contributedBy',
+  rcvddate: 'rcvdDate', amount: 'amount', loanamount: 'loanAmount', occupation: 'occupation',
+  employer: 'employer', address1: 'address1', address2: 'address2', city: 'city', state: 'state',
+  zip: 'zip', d2part: 'd2part', description: 'description', election: 'election'
+};
+function normHeader(h) { return h.trim().toLowerCase().replace(/[^a-z0-9]/g, ''); }
+
+function doParse() {
+  const raw = document.getElementById('pasteArea').value;
+  if (!raw || !raw.trim()) { alert('Paste CSV text or upload a file first.'); return; }
+  const lastFilter  = document.getElementById('il-lastName').value.trim().toLowerCase();
+  const firstFilter = document.getElementById('il-firstName').value.trim().toLowerCase();
+  document.getElementById('review-card').style.display = 'none';
+  document.getElementById('output-card').style.display = 'none';
+  setError(''); selectedIds.clear();
+  setStatus('<div class="spinner"></div> Parsing records…');
+
+  try {
+    const grid = parseCSV(raw);
+    if (grid.length < 2) throw new Error('Could not find a header row plus at least one data row.');
+    const headerRow = grid[0].map(normHeader);
+    const colIdx = {};
+    headerRow.forEach(function(h, i) { if (HEADER_ALIASES[h]) colIdx[HEADER_ALIASES[h]] = i; });
+    const required = ['committeeName','contributedBy','rcvdDate','amount'];
+    const missing = required.filter(function(r) { return !(r in colIdx); });
+    if (missing.length) throw new Error('CSV is missing expected column(s): ' + missing.join(', ') + '. Make sure this is an unmodified Illinois receipts export.');
+
+    const get = function(row, key) { return colIdx[key] !== undefined ? (row[colIdx[key]] || '') : ''; };
+    let results = [];
+
+    for (let i = 1; i < grid.length; i++) {
+      const row = grid[i];
+      if (!row || !row.length) continue;
+      const contributedBy = get(row, 'contributedBy').trim();
+      if (!contributedBy) continue;
+      if (lastFilter || firstFilter) {
+        const parts = contributedBy.split(',');
+        const rowLast  = (parts[0] || '').trim().toLowerCase();
+        const rowFirst = (parts[1] || '').trim().toLowerCase();
+        if (lastFilter  && !rowLast.includes(lastFilter))  continue;
+        if (firstFilter && !rowFirst.includes(firstFilter)) continue;
+      }
+      const dateStr = get(row, 'rcvdDate').trim();
+      const yearMatch = dateStr.match(/(\d{4})/);
+      const cycle = yearMatch ? parseInt(yearMatch[1]) : null;
+      const amtRaw  = get(row, 'amount').replace(/[^0-9.\-]/g, '');
+      const loanRaw = get(row, 'loanAmount').replace(/[^0-9.\-]/g, '');
+      const amount     = amtRaw  ? parseFloat(amtRaw)  : 0;
+      const loanAmount = loanRaw ? parseFloat(loanRaw) : 0;
+      const committee  = get(row, 'committeeName').trim() || '—';
+      const d2part     = get(row, 'd2part').trim();
+      const city  = get(row, 'city').trim();
+      const st    = get(row, 'state').trim();
+      const zip   = get(row, 'zip').trim().replace(/\s+/g,'').slice(0,5);
+      const addr1 = get(row, 'address1').trim();
+      const description = get(row, 'description').trim();
+      const presetLast = applyPresets(committee);
+      results.push({
+        id: i, cycle, date: dateStr || '—', committee,
+        rawName: contributedBy || '—',
+        employer:   get(row, 'employer').trim() || '—',
+        occupation: get(row, 'occupation').trim() || '—',
+        memo: description,
+        address: [addr1, city, st, zip].filter(Boolean).join(', ') || '—',
+        candidateLast: presetLast || guessLastIL(committee),
+        amount, loanAmount, d2part, excluded: false, customLast: '', contributedBy
+      });
+    }
+
+    if (!results.length) {
+      setStatus('');
+      setError('No matching rows found. Check the name filters, or confirm this is a raw Illinois receipts CSV export.');
+      return;
+    }
+    allContribs = results;
+    finishLoad(results.length, false, {
+      lastName:  document.getElementById('il-lastName').value.trim(),
+      firstName: document.getElementById('il-firstName').value.trim()
+    });
+  } catch(e) {
+    setStatus(''); setError('Error: ' + e.message);
+  }
+}
+
+function cyclesFromContribs(list) {
+  return [...new Set(list.map(function(c) { return c.cycle; }).filter(Boolean))].sort(function(a,b) { return b - a; });
+}
+
+function finishLoad(resultCount, fromHistory, nameInfo) {
+  const years = cyclesFromContribs(allContribs);
+  buildILCycleGrid(years);
+  document.getElementById('il-cycle-row').style.display = '';
+  if (!fromHistory && nameInfo) {
+    addToHistory({
+      lastName: nameInfo.lastName || '', firstName: nameInfo.firstName || '',
+      source: lastFileName || 'pasted text', state: '',
+      cycles: years, resultCount, timestamp: Date.now(),
+      rows: allContribs.map(function(c) { return Object.assign({}, c); })
+    });
+  }
+  const presetCount = allContribs.filter(function(c) { return applyPresets(c.committee); }).length;
+  const yr = years.length ? ' (' + years[years.length-1] + '–' + years[0] + ')' : '';
+  setStatus('✓ Loaded ' + allContribs.length + ' contribution' + (allContribs.length !== 1 ? 's' : '') + ' across ' + years.length + ' year' + (years.length !== 1 ? 's' : '') + yr + '.' + (presetCount ? ' ' + presetCount + ' auto-corrected by presets.' : ''));
+  sortCol = 'cycle'; sortDir = -1;
+  document.querySelectorAll('th.sortable').forEach(function(t) { t.classList.remove('sort-asc','sort-desc'); });
+  document.querySelector('th[data-col="cycle"]').classList.add('sort-desc');
+  closeRenameBanner(); selectedIds.clear();
+  ['name-filter','last-used-filter','filter-input','employer-filter','location-filter','amt-min','amt-max'].forEach(function(id) { document.getElementById(id).value = ''; });
+  renderTable();
+  document.getElementById('review-card').style.display = 'block';
+  document.getElementById('review-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+// ── Reapply presets ───────────────────────────────────────────────────────────
+function reapplyPresets() {
+  let count = 0;
+  allContribs.forEach(function(c) {
+    const preset = applyPresets(c.committee);
+    if (preset) { c.candidateLast = preset; c.customLast = ''; count++; }
+  });
+  renderTable();
+  setStatus('✓ Applied presets: ' + count + ' row' + (count !== 1 ? 's' : '') + ' updated.');
+  setTimeout(function() { setStatus('✓ Done.'); }, 2500);
+}
+
+// ── Sorting / filtering ───────────────────────────────────────────────────────
+function getSortVal(c, col) {
+  switch(col) {
+    case 'cycle':     return c.cycle || 0;
+    case 'date':      return c.date || '';
+    case 'rawName':   return (c.rawName || '').toLowerCase();
+    case 'committee': return c.committee.toLowerCase();
+    case 'employer':  return c.employer.toLowerCase();
+    case 'occupation':return c.occupation.toLowerCase();
+    case 'address':   return c.address.toLowerCase();
+    case 'lastName':  return getEffectiveLast(c).toLowerCase();
+    case 'amount':    return c.amount;
+    default: return '';
+  }
+}
+
+function getSortedVisible() {
+  const nameFilter     = document.getElementById('name-filter').value.toLowerCase();
+  const lastUsedFilter = document.getElementById('last-used-filter').value.toLowerCase();
+  const filter         = document.getElementById('filter-input').value.toLowerCase();
+  const empFilter      = document.getElementById('employer-filter').value.toLowerCase();
+  const locFilter      = document.getElementById('location-filter').value.toLowerCase();
+  const amtMin         = parseFloat(document.getElementById('amt-min').value);
+  const amtMax         = parseFloat(document.getElementById('amt-max').value);
+  let rows = [...allContribs];
+  if (nameFilter)     rows = rows.filter(function(c) { return (c.rawName || '').toLowerCase().includes(nameFilter); });
+  if (lastUsedFilter) rows = rows.filter(function(c) { return getEffectiveLast(c).toLowerCase().includes(lastUsedFilter); });
+  if (filter)         rows = rows.filter(function(c) { return c.committee.toLowerCase().includes(filter) || getEffectiveLast(c).toLowerCase().includes(filter); });
+  if (empFilter) rows = rows.filter(function(c) { return c.employer.toLowerCase().includes(empFilter) || c.occupation.toLowerCase().includes(empFilter); });
+  if (locFilter) rows = rows.filter(function(c) { return c.address.toLowerCase().includes(locFilter); });
+  if (!isNaN(amtMin)) rows = rows.filter(function(c) { return c.amount >= amtMin; });
+  if (!isNaN(amtMax)) rows = rows.filter(function(c) { return c.amount <= amtMax; });
+  rows.sort(function(a, b) {
+    const av = getSortVal(a, sortCol), bv = getSortVal(b, sortCol);
+    if (av < bv) return -sortDir; if (av > bv) return sortDir; return 0;
+  });
+  return rows;
+}
+
+// ── Render table ──────────────────────────────────────────────────────────────
+function renderTable() {
+  const tbody = document.getElementById('contrib-body');
+  tbody.innerHTML = '';
+  const visible = getSortedVisible();
+  const included = allContribs.filter(function(c) { return !c.excluded; }).length;
+  document.getElementById('record-count').textContent = included + ' of ' + allContribs.length + ' included';
+  updateSelectionBar();
+  const visibleSelected = visible.filter(function(c) { return selectedIds.has(c.id); });
+  const masterCb = document.getElementById('select-all-cb');
+  masterCb.indeterminate = visibleSelected.length > 0 && visibleSelected.length < visible.length;
+  masterCb.checked = visible.length > 0 && visibleSelected.length === visible.length;
+
+  const isIL = activeMode === 'il';
+  visible.forEach(function(c, visIdx) {
+    const tr = document.createElement('tr');
+    if (c.excluded) tr.classList.add('excluded');
+    if (selectedIds.has(c.id)) tr.classList.add('row-selected');
+    const displayName = getEffectiveLast(c);
+    const amtClass = c.amount < 0 ? 'amt-neg' : 'amt-pos';
+    const amtStr   = (c.amount < 0 ? '-' : '') + '$' + Math.abs(Math.round(c.amount)).toLocaleString();
+    let typeBadge = '';
+    if (isIL) {
+      if (/in-?kind/i.test(c.d2part)) typeBadge = ' <span class="type-badge inkind">In-kind</span>';
+      else if (c.loanAmount)           typeBadge = ' <span class="type-badge loan">Loan</span>';
+    }
+    const memoTitle = isIL ? 'View description' : 'View memo';
+    tr.innerHTML =
+      '<td class="cb-cell"><input type="checkbox" class="row-cb" data-id="' + c.id + '" data-visidx="' + visIdx + '" ' + (selectedIds.has(c.id) ? 'checked' : '') + ' /></td>' +
+      '<td>' + (c.cycle || '?') + '</td>' +
+      '<td style="color:var(--text-muted);white-space:nowrap">' + c.date + '</td>' +
+      '<td class="trunc-sm" title="' + escHtml(c.rawName || '') + '" style="color:var(--text-muted)">' + escHtml(c.rawName || '—') + '</td>' +
+      '<td class="trunc" title="' + escHtml(c.committee) + '">' + escHtml(c.committee) + typeBadge + '</td>' +
+      '<td class="trunc-sm" title="' + escHtml(c.employer) + '" style="color:var(--text-muted)">' + escHtml(c.employer) + '</td>' +
+      '<td class="trunc-sm" title="' + escHtml(c.occupation) + '" style="color:var(--text-muted)">' + escHtml(c.occupation) + '</td>' +
+      '<td class="trunc-sm" title="' + escHtml(c.address) + '" style="color:var(--text-muted)">' + escHtml(c.address) + '</td>' +
+      '<td><div class="override-wrap"><input class="override-input" value="' + escHtml(displayName) + '" onchange="updateLast(' + c.id + ', this.value)" /><button class="rename-all-btn" onclick="openRenameBanner(' + c.id + ')" title="Rename all with this name">all</button></div></td>' +
+      '<td style="text-align:right"><span class="' + amtClass + '">' + amtStr + '</span></td>' +
+      '<td style="text-align:right;white-space:nowrap">' + (c.memo ? '<button class="memo-btn" onclick="showMemo(' + c.id + ')" title="' + memoTitle + '">📋</button>' : '') + '<button class="exc-btn" onclick="toggleRow(' + c.id + ')">' + (c.excluded ? 'Include' : 'Exclude') + '</button></td>';
+    tbody.appendChild(tr);
+  });
+
+  tbody.querySelectorAll('.row-cb').forEach(function(cb) {
+    cb.addEventListener('change', function(e) {
+      const id = parseInt(this.dataset.id), visIdx = parseInt(this.dataset.visidx);
+      if (e.shiftKey && lastClickedRowIdx !== null) {
+        const lo = Math.min(lastClickedRowIdx, visIdx), hi = Math.max(lastClickedRowIdx, visIdx);
+        visible.slice(lo, hi+1).forEach(function(c) { if (cb.checked) selectedIds.add(c.id); else selectedIds.delete(c.id); });
+      } else { if (this.checked) selectedIds.add(id); else selectedIds.delete(id); }
+      lastClickedRowIdx = visIdx;
+      renderTable();
+    });
+  });
+
+  if (!visible.length) {
+    const tr = document.createElement('tr');
+    tr.innerHTML = '<td colspan="11" style="text-align:center;color:var(--text-faint);padding:2rem">No rows match the current filters.</td>';
+    tbody.appendChild(tr);
+  }
+}
+
+function updateLast(id, val) { const c = allContribs.find(function(x) { return x.id === id; }); if (c) c.customLast = val.trim(); }
+function toggleRow(id) { const c = allContribs.find(function(x) { return x.id === id; }); if (c) { c.excluded = !c.excluded; renderTable(); } }
+
+// ── Select all ────────────────────────────────────────────────────────────────
+function toggleSelectAll(masterCb) {
+  const visible = getSortedVisible();
+  if (masterCb.checked) visible.forEach(function(c) { selectedIds.add(c.id); });
+  else visible.forEach(function(c) { selectedIds.delete(c.id); });
+  renderTable();
+}
+
+function updateSelectionBar() {
+  const bar = document.getElementById('selection-bar'), count = selectedIds.size;
+  if (count === 0) { bar.style.display = 'none'; return; }
+  bar.style.display = 'flex';
+  document.getElementById('sel-count-label').textContent = count + ' row' + (count !== 1 ? 's' : '') + ' selected';
+}
+function excludeSelected()  { allContribs.forEach(function(c) { if (selectedIds.has(c.id)) c.excluded = true;  }); selectedIds.clear(); renderTable(); }
+function includeSelected()  { allContribs.forEach(function(c) { if (selectedIds.has(c.id)) c.excluded = false; }); selectedIds.clear(); renderTable(); }
+function clearSelection()   { selectedIds.clear(); renderTable(); }
+function excludeFiltered()  { getSortedVisible().forEach(function(c) { c.excluded = true;  }); selectedIds.clear(); renderTable(); }
+function includeFiltered()  { getSortedVisible().forEach(function(c) { c.excluded = false; }); selectedIds.clear(); renderTable(); }
+function excludeRefunds()   { allContribs.forEach(function(c) { if (c.amount < 0)               c.excluded = true; }); renderTable(); }
+function excludeNegative()  { allContribs.forEach(function(c) { if (c.amount <= 0)              c.excluded = true; }); renderTable(); }
+function excludeInKind()    { allContribs.forEach(function(c) { if (/in-?kind/i.test(c.d2part)) c.excluded = true; }); renderTable(); }
+function excludeLoans()     { allContribs.forEach(function(c) { if (c.loanAmount)               c.excluded = true; }); renderTable(); }
+function includeAll()       { allContribs.forEach(function(c) { c.excluded = false; }); renderTable(); }
+
+// ── Rename banner ─────────────────────────────────────────────────────────────
+function openRenameBanner(id) {
+  const c = allContribs.find(function(x) { return x.id === id; }); if (!c) return;
+  const current = getEffectiveLast(c);
+  renameSourceKey = current.toLowerCase();
+  document.getElementById('rename-source-label').textContent = '"' + current + '"';
+  document.getElementById('rename-target').value = current;
+  updateRenamePreview();
+  document.getElementById('rename-banner').style.display = 'flex';
+  document.getElementById('review-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  setTimeout(function() { document.getElementById('rename-target').focus(); }, 400);
+  document.getElementById('rename-target').select();
+}
+function updateRenamePreview() {
+  if (!renameSourceKey) return;
+  const count   = allContribs.filter(function(c) { return getEffectiveLast(c).toLowerCase() === renameSourceKey; }).length;
+  const newName = document.getElementById('rename-target').value.trim();
+  const el      = document.getElementById('rename-preview');
+  if (newName && newName.toLowerCase() !== renameSourceKey) el.textContent = 'will rename ' + count + ' row' + (count !== 1 ? 's' : '');
+  else el.textContent = count + ' row' + (count !== 1 ? 's' : '') + ' affected';
+}
+function applyRenameAll() {
+  const newName = document.getElementById('rename-target').value.trim();
+  if (!newName) { alert('Enter a new last name.'); return; }
+  let count = 0;
+  allContribs.forEach(function(c) { if (getEffectiveLast(c).toLowerCase() === renameSourceKey) { c.customLast = newName; count++; } });
+  closeRenameBanner(); renderTable();
+  setStatus('✓ Renamed ' + count + ' row' + (count !== 1 ? 's' : '') + ' to "' + newName + '".');
+  setTimeout(function() { setStatus('✓ Done.'); }, 2500);
+}
+function closeRenameBanner() {
+  document.getElementById('rename-banner').style.display = 'none'; renameSourceKey = null;
+}
+document.getElementById('rename-target').addEventListener('keydown', function(e) {
+  if (e.key === 'Enter') applyRenameAll();
+  if (e.key === 'Escape') closeRenameBanner();
+});
+
+// ── Build output (FIXED: includes negatives for net totals) ───────────────────
+function buildOutput() {
+  // Include ALL non-excluded, including negatives (refunds reduce totals)
+  const active = allContribs.filter(function(c) { return !c.excluded; });
+  const byKey = {};
+  for (const c of active) {
+    const ln  = getEffectiveLast(c);
+    const key = c.cycle + '__' + ln.toLowerCase();
+    if (!byKey[key]) byKey[key] = { cycle: c.cycle, lastName: ln, total: 0 };
+    byKey[key].total += c.amount;
+  }
+  // Only show entries with a non-zero net total
+  const byCycle = {};
+  for (const e of Object.values(byKey)) {
+    const net = Math.round(e.total);
+    if (net === 0) continue; // skip fully-refunded entries
+    const k = e.cycle || '?';
+    if (!byCycle[k]) byCycle[k] = [];
+    byCycle[k].push({ lastName: e.lastName, total: net });
+  }
+  const allSel = selectedCycles().map(Number).sort(function(a,b) { return yearOrderDesc ? b - a : a - b; });
+  const lines  = allSel.map(function(cycle) {
+    const entries = (byCycle[cycle] || []).sort(function(a,b) { return b.total - a.total; });
+    if (!entries.length) return cycle + ': None';
+    const amtGroups = {};
+    for (const e of entries) {
+      if (!amtGroups[e.total]) amtGroups[e.total] = [];
+      amtGroups[e.total].push(e.lastName);
+    }
+    const parts = [...new Set(entries.map(function(e) { return e.total; }))].map(function(amt) {
+      return amtGroups[amt].join(', ') + ' ' + fmtAmt(amt);
+    });
+    const yearTotal = showYearTotals ? ' [total: ' + fmtAmt(entries.reduce(function(s,e){return s+e.total;},0)) + ']' : '';
+    return cycle + ': ' + parts.join(separator) + yearTotal;
+  });
+
+  // Avg of every individual raw donation (pre-grouping), filtered to selected cycles
+  const rawForAvg = active.filter(function(c) { return allSel.indexOf(Number(c.cycle)) !== -1; })
+                          .map(function(c) { return { total: c.amount }; });
+  const avgLine = computeAvgLine(rawForAvg);
+  if (avgLine) lines.push(avgLine);
+
+  document.getElementById('output-text').textContent = lines.join('\n');
+  document.getElementById('output-card').style.display = 'block';
+  document.getElementById('output-card').scrollIntoView({ behavior: 'smooth', block: 'start' });
+}
+
+function copyOutput() {
+  const raw  = document.getElementById('output-text').textContent;
+  const text = copyFormat === 'markdown' ? '```\n' + raw + '\n```' : raw;
+  const btn  = document.getElementById('copy-btn');
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = '✓ Copied!';
+    setTimeout(function() {
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy to clipboard';
+    }, 2000);
+  }).catch(function() {
+    const el = document.getElementById('output-text');
+    const range = document.createRange(); range.selectNode(el);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
+    document.execCommand('copy'); window.getSelection().removeAllRanges();
+  });
+}
+
+// ── Merge tab ─────────────────────────────────────────────────────────────────
+function parseMergeInput(text) {
+  // Parse lines like: "2022: Duckworth $5K; Barnes $2.5K"
+  // Returns array of { year, name, amount }
+  const results = [];
+  const lines = text.trim().split('\n');
+  for (const line of lines) {
+    const l = line.trim();
+    if (!l) continue;
+    const colonIdx = l.indexOf(':');
+    if (colonIdx < 0) continue;
+    const yearStr = l.slice(0, colonIdx).trim();
+    const year = parseInt(yearStr);
+    if (isNaN(year)) continue;
+    const rest = l.slice(colonIdx + 1).trim();
+    // split by semicolons
+    const parts = rest.split(';');
+    for (const part of parts) {
+      const p = part.trim();
+      if (!p || p.toLowerCase() === 'none') continue;
+      // parse: "Name $5K" or "Name $5,000" or "Name,Name2 $5K"
+      // amount is last token starting with $ (possibly with -)
+      const tokens = p.split(/\s+/);
+      let amtIdx = -1;
+      for (let i = tokens.length - 1; i >= 0; i--) {
+        if (/^-?\$/.test(tokens[i])) { amtIdx = i; break; }
+      }
+      if (amtIdx < 0) continue;
+      const amtStr = tokens[amtIdx];
+      const namePart = tokens.slice(0, amtIdx).join(' ').replace(/,\s*$/, '').trim();
+      // parse amount: $5K, $5.0K, $5,000, -$5K
+      const amt = parseFmtAmt(amtStr);
+      if (isNaN(amt) || !namePart) continue;
+      // names may be comma-separated
+      namePart.split(',').forEach(function(n) {
+        const name = n.trim();
+        if (name) results.push({ year, name, amount: amt });
+      });
+    }
+  }
+  return results;
+}
+
+function parseFmtAmt(s) {
+  // handles: $5K, $5.0K, $5,000, -$5K, -$5,000, $500
+  const neg = s.startsWith('-');
+  const clean = s.replace(/^-?\$/, '').replace(/,/g, '');
+  let val;
+  if (/K$/i.test(clean)) val = parseFloat(clean) * 1000;
+  else val = parseFloat(clean);
+  return neg ? -val : val;
+}
+
+function doMerge() {
+  const textA = document.getElementById('merge-a').value.trim();
+  const textB = document.getElementById('merge-b').value.trim();
+  if (!textA && !textB) {
+    document.getElementById('merge-status').textContent = 'Paste at least one history to merge.';
+    return;
+  }
+
+  const entriesA = textA ? parseMergeInput(textA) : [];
+  const entriesB = textB ? parseMergeInput(textB) : [];
+  const all = [...entriesA, ...entriesB];
+
+  if (!all.length) {
+    document.getElementById('merge-status').textContent = 'Could not parse any entries. Check format: "2022: Name $5K; Name2 $2.5K"';
+    return;
+  }
+
+  // Sum by year + name key
+  const byKey = {};
+  for (const e of all) {
+    const key = e.year + '__' + e.name.toLowerCase();
+    if (!byKey[key]) byKey[key] = { year: e.year, name: e.name, total: 0 };
+    byKey[key].total += e.amount;
+  }
+
+  // Group by year
+  const byCycle = {};
+  for (const e of Object.values(byKey)) {
+    const net = Math.round(e.total);
+    if (net === 0) continue;
+    const k = e.year;
+    if (!byCycle[k]) byCycle[k] = [];
+    byCycle[k].push({ lastName: e.name, total: net });
+  }
+
+  const years = Object.keys(byCycle).map(Number).sort(function(a,b) { return yearOrderDesc ? b - a : a - b; });
+
+  const lines = years.map(function(year) {
+    const entries = (byCycle[year] || []).sort(function(a,b) { return b.total - a.total; });
+    if (!entries.length) return year + ': None';
+    const amtGroups = {};
+    for (const e of entries) {
+      if (!amtGroups[e.total]) amtGroups[e.total] = [];
+      amtGroups[e.total].push(e.lastName);
+    }
+    const parts = [...new Set(entries.map(function(e) { return e.total; }))].map(function(amt) {
+      return amtGroups[amt].join(', ') + ' ' + fmtAmt(amt);
+    });
+    const yearTotal = showYearTotals ? ' [total: ' + fmtAmt(entries.reduce(function(s,e){return s+e.total;},0)) + ']' : '';
+    return year + ': ' + parts.join(separator) + yearTotal;
+  });
+
+  // Avg: parse avg lines from each input, average the two averages, sum the counts
+  function parseAvgLine(text) {
+    const m = text.match(/^Avg:?\s*(-?\$[\d.,]+K?)\s*\((\d+)\s*contribution/im);
+    if (!m) return null;
+    return { avg: parseFmtAmt(m[1]), count: parseInt(m[2]) };
+  }
+  const avgA = textA ? parseAvgLine(textA) : null;
+  const avgB = textB ? parseAvgLine(textB) : null;
+  if (avgA || avgB) {
+    let mergedAvg, mergedCount;
+    if (avgA && avgB) {
+      mergedCount = avgA.count + avgB.count;
+      mergedAvg = (avgA.avg * avgA.count + avgB.avg * avgB.count) / mergedCount;
+    } else {
+      const only = avgA || avgB;
+      mergedAvg = only.avg;
+      mergedCount = only.count;
+    }
+    lines.push('Avg: ' + fmtAmt(Math.round(mergedAvg)) + ' (' + mergedCount + ' contribution' + (mergedCount !== 1 ? 's' : '') + ')');
+  }
+
+  const output = lines.join('\n');
+  document.getElementById('merge-output-text').textContent = output;
+  document.getElementById('merge-output-wrap').style.display = 'block';
+  document.getElementById('merge-status').textContent = '✓ Merged ' + all.length + ' entries across ' + years.length + ' year' + (years.length !== 1 ? 's' : '') + '.';
+}
+
+function clearMerge() {
+  document.getElementById('merge-a').value = '';
+  document.getElementById('merge-b').value = '';
+  document.getElementById('merge-output-wrap').style.display = 'none';
+  document.getElementById('merge-status').textContent = '';
+}
+
+function copyMerge() {
+  const raw  = document.getElementById('merge-output-text').textContent;
+  const text = copyFormat === 'markdown' ? '```\n' + raw + '\n```' : raw;
+  const btn  = document.getElementById('merge-copy-btn');
+  navigator.clipboard.writeText(text).then(function() {
+    btn.textContent = '✓ Copied!';
+    setTimeout(function() {
+      btn.innerHTML = '<svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect x="9" y="9" width="13" height="13" rx="2"/><path d="M5 15H4a2 2 0 0 1-2-2V4a2 2 0 0 1 2-2h9a2 2 0 0 1 2 2v1"/></svg> Copy to clipboard';
+    }, 2000);
+  }).catch(function() {
+    const el = document.getElementById('merge-output-text');
+    const range = document.createRange(); range.selectNode(el);
+    window.getSelection().removeAllRanges(); window.getSelection().addRange(range);
+    document.execCommand('copy'); window.getSelection().removeAllRanges();
+  });
+}
+
+// ── Debug presets ─────────────────────────────────────────────────────────────
+function debugPresets() {
+  var presets    = loadPresets();
+  var committees = allContribs.map(function(c) { return c.committee; })
+    .filter(function(v, i, a) { return a.indexOf(v) === i; }).sort();
+  if (!committees.length) { alert('No results loaded yet. Run a search first.'); return; }
+  var out = '';
+  if (!presets.length) out += 'No presets defined. Go to the Name Presets tab to add some.\n\n';
+  else {
+    out += 'Active presets (' + presets.length + '):\n';
+    presets.forEach(function(p) { out += '  "' + p.keyword + '" -> "' + p.lastName + '"\n'; });
+    out += '\n';
+  }
+  out += 'Unique committees in results (' + committees.length + '):\n\n';
+  committees.forEach(function(name) {
+    var lower = name.toLowerCase(), matched = null;
+    for (var i = 0; i < presets.length; i++) {
+      if (lower.indexOf(presets[i].keyword.toLowerCase()) !== -1) { matched = presets[i]; break; }
+    }
+    if (matched) out += '✅ "' + name + '"\n   -> matched preset "' + matched.keyword + '" -> "' + matched.lastName + '"\n\n';
+    else out += '❌ "' + name + '"\n   -> no preset matched\n\n';
+  });
+  document.getElementById('debug-content').textContent = out;
+  document.getElementById('debug-overlay').style.display = 'flex';
+}
+function closeDebug(e) {
+  if (e && e.target !== document.getElementById('debug-overlay')) return;
+  document.getElementById('debug-overlay').style.display = 'none';
+}
+
+// ── Memo popup ────────────────────────────────────────────────────────────────
+function showMemo(id) {
+  const c = allContribs.find(function(x) { return x.id === id; }); if (!c || !c.memo) return;
+  document.getElementById('memo-popup-text').textContent      = c.memo;
+  document.getElementById('memo-popup-committee').textContent = c.committee;
+  document.getElementById('memo-overlay').style.display = 'flex';
+  document.addEventListener('keydown', memoKeyHandler);
+}
+function closeMemo(e) {
+  if (e && e.target !== document.getElementById('memo-overlay')) return;
+  document.getElementById('memo-overlay').style.display = 'none';
+  document.removeEventListener('keydown', memoKeyHandler);
+}
+function memoKeyHandler(e) {
+  if (e.key === 'Escape') { document.getElementById('memo-overlay').style.display = 'none'; document.removeEventListener('keydown', memoKeyHandler); }
+}
+
+// ── Enter key shortcuts ───────────────────────────────────────────────────────
+document.getElementById('fec-lastName').addEventListener('keydown', function(e) { if (e.key === 'Enter') doSearch(); });
+document.getElementById('il-lastName').addEventListener('keydown',  function(e) { if (e.key === 'Enter') doParse();  });
+document.getElementById('il-firstName').addEventListener('keydown', function(e) { if (e.key === 'Enter') doParse();  });
+document.getElementById('preset-lastname').addEventListener('keydown', function(e) { if (e.key === 'Enter') addPreset(); });
+
+// ── Init ──────────────────────────────────────────────────────────────────────
+(function init() {
+  // Load persisted settings
+  yearOrderDesc = ls(YEAR_ORDER_KEY, '0') === '1';
+  amtFormat     = ls(AMT_FORMAT_KEY, 'k');
+
+  applyYearOrderUI();
+  setAmtFormat(amtFormat);
+  initColors();
+  initCustomization();
+  initApiKey();
+  initDefaultState();
+  initAvgSettings();
+  initOutputSettings();
+  initDebugMode();
+  renderPresets();
+  renderHistory();
+})();
+</script>
+</body>
+</html>
