@@ -1,2 +1,2 @@
 # donor-history-weller
-donor history formatte
+donor history formatter
